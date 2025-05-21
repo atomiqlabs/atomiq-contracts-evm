@@ -17,6 +17,12 @@ import "../utils/Endianness.sol";
 library StoredBlockHeader {
     uint256 public constant DIFFICULTY_ADJUSTMENT_INTERVAL = 2016;
 
+    //Maximum positive difference between bitcoin block's timestamp and EVM chain's on-chain clock
+    //Nodes in bitcoin network generally reject any block with timestamp more than 2 hours in the future
+    //As we are dealing with another blockchain here,
+    // with the possibility of the EVM chain's on-chain clock being skewed, we chose double the value - 4 hours
+    uint256 public constant MAX_FUTURE_BLOCKTIME = 4 * 60 * 60;
+
     using BlockHeader for bytes;
 
     function verifyOutOfBounds(bytes memory self) pure internal {
@@ -66,21 +72,45 @@ library StoredBlockHeader {
             result := keccak256(add(self, 32), 160)
         }
     }
-    
-    function headerDblSha256Hash(bytes memory self) view internal returns (bytes32 result) {
+
+    function writeHeaderAndGetDblSha256Hash(bytes memory self, bytes calldata headers, uint256 offset) view internal returns (bytes32 result) {
         assembly ("memory-safe") {
-            //Invoke first sha256 hash on the memory region, destination is scratch space at 0x00
+            //Invoke first sha256 hash on the memory region storing the previous blockheader, destination is scratch space at 0x00
             pop(staticcall(gas(), 0x02, add(self, 32), 80, 0x00, 32))
-            //Invoke seconds sha256 on the scratch space at 0x00
+            //Invoke second sha256 on the scratch space at 0x00, copy directly to where the previous blockhash should be stored for next stored blockheader
+            pop(staticcall(gas(), 0x02, 0x00, 32, add(self, 36), 32))
+
+            //Copy other data to the stored blockheader from calldata
+            calldatacopy(add(self, 32), add(headers.offset, offset), 4)
+            calldatacopy(add(self, 68), add(headers.offset, add(offset, 4)), 44)
+
+            //Invoke first sha256 hash on the memory region now storing the current blockheader, destination is scratch space at 0x00
+            pop(staticcall(gas(), 0x02, add(self, 32), 80, 0x00, 32))
+            //Invoke second sha256 on the scratch space at 0x00
             pop(staticcall(gas(), 0x02, 0x00, 32, 0x00, 32))
 
+            //Load and return the result
             result := mload(0x00)
         }
     }
 
-    function updateChain(bytes memory self, bytes calldata headers, uint256 offset) internal view {
-        //Previous blockhash matches
-        require(headerDblSha256Hash(self) == headers.previousBlockhash(offset), "updateChain: prev blockhash");
+    function headerDblSha256Hash(bytes memory self) view internal returns (bytes32 result) {
+        assembly ("memory-safe") {
+            //Invoke first sha256 hash on the memory region now storing the current blockheader, destination is scratch space at 0x00
+            pop(staticcall(gas(), 0x02, add(self, 32), 80, 0x00, 32))
+            //Invoke second sha256 on the scratch space at 0x00
+            pop(staticcall(gas(), 0x02, 0x00, 32, 0x00, 32))
+
+            //Load and return the result
+            result := mload(0x00)
+        }
+    }
+
+    function updateChain(bytes memory self, bytes calldata headers, uint256 offset, uint256 timestamp) internal view returns (bytes32 blockHash) {
+        //We don't check whether pevious header matches since submitted headers are submitted
+        // without previousBlockHash fields, which is instead taken automatically from the
+        // current StoredBlockHeader, this allows us to save at least 512 gas on calldata
+        headers.verifyOutOfBounds(offset);
 
         uint256 prevBlockTimestamp = Endianness.reverseUint32(headerReversedTimestamp(self));
         uint256 currBlockTimestamp = Endianness.reverseUint32(headers.reversedTimestamp(offset));
@@ -112,7 +142,8 @@ library StoredBlockHeader {
         }
 
         //Check PoW
-        require(uint256(Endianness.reverseBytes32(headers.dblSha256Hash(offset))) < newTarget, "updateChain: invalid PoW");
+        blockHash = writeHeaderAndGetDblSha256Hash(self, headers, offset);
+        require(uint256(Endianness.reverseBytes32(blockHash)) < newTarget, "updateChain: invalid PoW");
 
         //Verify timestamp is larger than median of last 11 block timestamps
         uint256 count = 0;
@@ -134,6 +165,7 @@ library StoredBlockHeader {
             count := add(count, gt(currBlockTimestamp, and(prevBlockTimestampsArray2, 0xffffffff)))
         }
         require(count > 5, "updateChain: timestamp median");
+        require(currBlockTimestamp < timestamp + MAX_FUTURE_BLOCKTIME, 'updateChain: timestamp future');
 
         //Update prev block timestamps
         assembly {
@@ -147,7 +179,8 @@ library StoredBlockHeader {
 
         //Save the stored blockheader to memory
         assembly ("memory-safe") {
-            calldatacopy(add(self, 32), add(headers.offset, offset), 80)
+            //Blockheader is already written to memory with prior writeHeaderAndGetDblSha256Hash() call
+
             mstore(add(self, 112), _chainWork)
             mstore(add(self, 144), 
                 or(
@@ -158,6 +191,8 @@ library StoredBlockHeader {
                     shr(64, prevBlockTimestampsArray1)
                 )
             )
+            //Ensure we don't write outside the region of the stored blockheader byte array, so we
+            // have a little bit of an overlap here
             mstore(add(self, 160), 
                 or(
                     shl(64, prevBlockTimestampsArray1),

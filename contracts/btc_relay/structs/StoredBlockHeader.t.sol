@@ -12,7 +12,7 @@ contract StoredBlockHeaderTestWrapper {
 
     function tStoredBlockheader(bytes memory storedblockheader, bytes calldata headers) public {
         // console.log("%x", uint256(headers.dblSha256Hash(0)));
-        storedblockheader.updateChain(headers, 0);
+        storedblockheader.updateChain(headers, 0, 1800000000);
     }
 
 }
@@ -29,7 +29,7 @@ contract StoredBlockHeaderTest is Test {
     function test_storedBlockheaderRead() public {
         bytes memory storedblockheader = hex"00000020a5376a85ea4e0b982e5305d0fb17b57307d7b4e20398000000000000000000001d5649615cffcd110ad492ae83c54034f12d41f44dd69094c875b750539e1031f65afc58731c02187a15fac4000000000000000000000000000000000000000000501ba97ac01f852a2537100007111b58eee9a658fc438658fc45de58fc483658fc4a8e58fc4ce658fc4f3e58fc519658fc53ee58fc564658fc589e";
         // console.log("%x", uint256(storedblockheader.headerDblSha256Hash()));
-        bytes memory headers = hex"000000206c9a2e7400553bb3268205eb0c1f3449b6bbdd8bb8d89d000000000000000000da44094fbe83dd0c7567d2dede1cd632a844eecdc80469b2d38173a38adb6d37fc5bfc58731c021805c5ce0a";
+        bytes memory headers = hex"00000020da44094fbe83dd0c7567d2dede1cd632a844eecdc80469b2d38173a38adb6d37fc5bfc58731c021805c5ce0a";
         wrapper.tStoredBlockheader(storedblockheader, headers);
     }
 
