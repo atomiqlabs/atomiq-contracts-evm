@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.28;
 
 import {Test} from "forge-std/Test.sol";
@@ -7,8 +8,7 @@ import "./StoredBlockHeader.sol";
 import "./BlockHeader.sol";
 
 contract StoredBlockHeaderTestWrapper {
-    using StoredBlockHeader for bytes;
-    using BlockHeader for bytes;
+    using StoredBlockHeaderImpl for bytes;
 
     function tStoredBlockheader(bytes memory storedblockheader, bytes calldata headers) public {
         // console.log("%x", uint256(headers.dblSha256Hash(0)));

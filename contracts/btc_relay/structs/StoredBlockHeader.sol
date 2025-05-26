@@ -1,9 +1,10 @@
+// SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.28;
 
 import "./BlockHeader.sol";
 import "../utils/Nbits.sol";
 import "../utils/Difficulty.sol";
-import "../utils/Endianness.sol";
+import "../../btc_utils/Endianness.sol";
 
 /**
  * Bitcoin stored blockheader decoding from bytes
@@ -15,36 +16,65 @@ import "../utils/Endianness.sol";
  * - uint32[10] prevBlockTimestamps
  */
 library StoredBlockHeader {
-    uint256 public constant DIFFICULTY_ADJUSTMENT_INTERVAL = 2016;
 
-    //Maximum positive difference between bitcoin block's timestamp and EVM chain's on-chain clock
-    //Nodes in bitcoin network generally reject any block with timestamp more than 2 hours in the future
-    //As we are dealing with another blockchain here,
-    // with the possibility of the EVM chain's on-chain clock being skewed, we chose double the value - 4 hours
-    uint256 public constant MAX_FUTURE_BLOCKTIME = 4 * 60 * 60;
+    function fromMemory(bytes memory data, uint256 offset) pure internal returns (bytes memory storedHeader) {
+        require(data.length >= 160+offset, "StoredBlockHeader: out of bounds");
+        assembly {
+            storedHeader := mload(0x40)
+            mstore(0x40, add(storedHeader, 192))
+            mstore(storedHeader, 160)
+            mcopy(add(storedHeader, 32), add(add(data, 32), offset), 160)
+        }
+    }
 
-    using BlockHeader for bytes;
+    function fromCalldata(bytes calldata data, uint256 offset) pure internal returns (bytes memory storedHeader) {
+        require(data.length >= 160+offset, "StoredBlockHeader: out of bounds");
+        assembly {
+            storedHeader := mload(0x40)
+            mstore(0x40, add(storedHeader, 192))
+            mstore(storedHeader, 160)
+            calldatacopy(add(storedHeader, 32), data.offset, 160)
+        }
+    }
 
     function verifyOutOfBounds(bytes memory self) pure internal {
         require(self.length >= 160, "StoredBlockHeader: out of bounds");
     }
 
     //Getters
-    function headerMerkleRoot(bytes memory self) pure internal returns (bytes32 result) {
+    function header_reversedVersion(bytes memory self) pure internal returns (uint256 result) {
+        assembly ("memory-safe") {
+            result := shr(224, mload(add(self, 32)))
+        }
+    }
+
+    function header_previousBlockhash(bytes memory self) pure internal returns (uint256 result) {
+        assembly ("memory-safe") {
+            result := mload(add(self, 36))
+        }
+    }
+
+    function header_merkleRoot(bytes memory self) pure internal returns (bytes32 result) {
         assembly ("memory-safe") {
             result := mload(add(self, 68))
         }
     }
 
-    function headerReversedTimestamp(bytes memory self) pure internal returns (uint256 result) {
+    function header_reversedTimestamp(bytes memory self) pure internal returns (uint256 result) {
         assembly ("memory-safe") {
             result := shr(224, mload(add(self, 100)))
         }
     }
 
-    function headerNbits(bytes memory self) pure internal returns (uint256 result) {
+    function header_nbits(bytes memory self) pure internal returns (uint256 result) {
         assembly ("memory-safe") {
             result := shr(224, mload(add(self, 104)))
+        }
+    }
+
+    function header_nonce(bytes memory self) pure internal returns (uint256 result) {
+        assembly ("memory-safe") {
+            result := shr(224, mload(add(self, 108)))
         }
     }
 
@@ -67,12 +97,38 @@ library StoredBlockHeader {
     }
 
     //Functions
+    function header_blockhash(bytes memory self) view internal returns (bytes32 result) {
+        assembly ("memory-safe") {
+            //Invoke first sha256 hash on the memory region now storing the current blockheader, destination is scratch space at 0x00
+            pop(staticcall(gas(), 0x02, add(self, 32), 80, 0x00, 32))
+            //Invoke second sha256 on the scratch space at 0x00
+            pop(staticcall(gas(), 0x02, 0x00, 32, 0x00, 32))
+
+            //Load and return the result
+            result := mload(0x00)
+        }
+    }
+
     function hash(bytes memory self) pure internal returns (bytes32 result) {
         assembly ("memory-safe") {
             result := keccak256(add(self, 32), 160)
         }
     }
+}
 
+library StoredBlockHeaderImpl {
+    uint256 public constant DIFFICULTY_ADJUSTMENT_INTERVAL = 2016;
+
+    //Maximum positive difference between bitcoin block's timestamp and EVM chain's on-chain clock
+    //Nodes in bitcoin network generally reject any block with timestamp more than 2 hours in the future
+    //As we are dealing with another blockchain here,
+    // with the possibility of the EVM chain's on-chain clock being skewed, we chose double the value - 4 hours
+    uint256 public constant MAX_FUTURE_BLOCKTIME = 4 * 60 * 60;
+
+    using BlockHeader for bytes;
+    using StoredBlockHeader for bytes;
+
+    //Functions
     function writeHeaderAndGetDblSha256Hash(bytes memory self, bytes calldata headers, uint256 offset) view internal returns (bytes32 result) {
         assembly ("memory-safe") {
             //Invoke first sha256 hash on the memory region storing the previous blockheader, destination is scratch space at 0x00
@@ -94,30 +150,18 @@ library StoredBlockHeader {
         }
     }
 
-    function headerDblSha256Hash(bytes memory self) view internal returns (bytes32 result) {
-        assembly ("memory-safe") {
-            //Invoke first sha256 hash on the memory region now storing the current blockheader, destination is scratch space at 0x00
-            pop(staticcall(gas(), 0x02, add(self, 32), 80, 0x00, 32))
-            //Invoke second sha256 on the scratch space at 0x00
-            pop(staticcall(gas(), 0x02, 0x00, 32, 0x00, 32))
-
-            //Load and return the result
-            result := mload(0x00)
-        }
-    }
-
     function updateChain(bytes memory self, bytes calldata headers, uint256 offset, uint256 timestamp) internal view returns (bytes32 blockHash) {
         //We don't check whether pevious header matches since submitted headers are submitted
         // without previousBlockHash fields, which is instead taken automatically from the
         // current StoredBlockHeader, this allows us to save at least 512 gas on calldata
         headers.verifyOutOfBounds(offset);
 
-        uint256 prevBlockTimestamp = Endianness.reverseUint32(headerReversedTimestamp(self));
+        uint256 prevBlockTimestamp = Endianness.reverseUint32(self.header_reversedTimestamp());
         uint256 currBlockTimestamp = Endianness.reverseUint32(headers.reversedTimestamp(offset));
 
         //Check correct nbits
-        uint256 currBlockHeight = blockHeight(self) + 1;
-        uint256 _lastDiffAdjustment = lastDiffAdjustment(self);
+        uint256 currBlockHeight = self.blockHeight() + 1;
+        uint256 _lastDiffAdjustment = self.lastDiffAdjustment();
         uint256 newNbits = headers.nbits(offset);
         uint256 newTarget;
         if(currBlockHeight % DIFFICULTY_ADJUSTMENT_INTERVAL == 0) {
@@ -126,7 +170,7 @@ library StoredBlockHeader {
             newTarget = Difficulty.computeNewTarget(
                 prevBlockTimestamp,
                 _lastDiffAdjustment,
-                headerNbits(self)
+                self.header_nbits()
             );
             uint256 computedNbits = Nbits.toNbits(newTarget);
             require(newNbits == computedNbits, "updateChain: new nbits");
@@ -137,7 +181,7 @@ library StoredBlockHeader {
             _lastDiffAdjustment = currBlockTimestamp;
         } else {
             //nbits must be same as last block
-            require(newNbits == headerNbits(self), "updateChain: nbits");
+            require(newNbits == self.header_nbits(), "updateChain: nbits");
             newTarget = Nbits.toTarget(newNbits);
         }
 
@@ -175,7 +219,7 @@ library StoredBlockHeader {
             prevBlockTimestampsArray2 := or(prevBlockTimestampsArray2, prevBlockTimestamp) //Add previous block timestamp
         }
 
-        uint256 _chainWork = chainWork(self) + Difficulty.getChainWork(newTarget);
+        uint256 _chainWork = self.chainWork() + Difficulty.getChainWork(newTarget);
 
         //Save the stored blockheader to memory
         assembly ("memory-safe") {
@@ -201,4 +245,5 @@ library StoredBlockHeader {
             )
         }
     }
+
 }

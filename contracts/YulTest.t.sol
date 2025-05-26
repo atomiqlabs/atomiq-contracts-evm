@@ -1,3 +1,5 @@
+pragma solidity ^0.8.29;
+
 import "deploy-yul/YulDeployer.sol";
 
 import {Test} from "forge-std/Test.sol";

@@ -1,4 +1,4 @@
-
+// SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.28;
 
 library Endianness {
@@ -6,6 +6,15 @@ library Endianness {
         assembly {
             input := or(shr(8, and(input, 0xFF00FF00)), shl(8, and(input, 0x00FF00FF)))
             input := or(shr(16, and(input, 0xFFFF0000)), shl(16, and(input, 0x0000FFFF)))
+        }
+        return input;
+    }
+
+    function reverseUint64(uint256 input) internal pure returns (uint256) {
+        assembly {
+            input := or(shr(8, and(input, 0xFF00FF00FF00FF00)), shl(8, and(input, 0x00FF00FF00FF00FF)))
+            input := or(shr(16, and(input, 0xFFFF0000FFFF0000)), shl(16, and(input, 0x0000FFFF0000FFFF)))
+            input := or(shr(32, and(input, 0xFFFFFFFF00000000)), shl(32, and(input, 0x00000000FFFFFFFF)))
         }
         return input;
     }

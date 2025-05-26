@@ -1,10 +1,11 @@
+// SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.28;
 
 /**
- * Bitcoin blockheader decoding from bytes
+ * Bitcoin blockheader decoding from bytes (previous block hash is not included and is instead
+ *  fetched from latest stored blockheader)
  * Structure (total 48 bytes):
  * - uint32 reversedVersion
- * - bytes32 previousBlockhash (omitted and taken from last)
  * - bytes32 merkleRoot
  * - uint32 reversedTimestamp
  * - uint32 nbits
