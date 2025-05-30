@@ -3,6 +3,7 @@ pragma solidity ^0.8.28;
 
 library BitcoinMerkleTree {
 
+    //Computes the merkle root from the provided leaf, with the proof and index (position of the leaf in the bottom layer of the tree)
     function getMerkleRoot(bytes32 leaf, bytes32[] calldata proof, uint256 index) view internal returns (bytes32 merkleRoot) {
         assembly ("memory-safe") {
             //if the least significant bit of index is set, store the hash on the right side (offset 32)
@@ -27,6 +28,7 @@ library BitcoinMerkleTree {
         }
     }
 
+    //Verifies the merkle root inclusion proof
     function verify(bytes32 root, bytes32 leaf, bytes32[] calldata proof, uint256 index) view internal {
         require(getMerkleRoot(leaf, proof, index)==root, "merkleTree: verify failed");
     }

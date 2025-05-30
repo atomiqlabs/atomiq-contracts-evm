@@ -14,7 +14,7 @@ interface IBtcRelay {
 interface IBtcRelayView {
     function getChainwork() external view returns (uint256);
     function getBlockheight() external view returns (uint256);
-    function verifyBlockheader(bytes memory storedHeader) external view returns (uint256);
+    function verifyBlockheader(StoredBlockHeader memory storedHeader) external view returns (uint256);
     function verifyBlockheaderHash(uint256 height, bytes32 commitmentHash) external view returns (uint256);
     function getCommitHash(uint256 height) external view returns (bytes32);
     function getTipCommitHash() external view returns (bytes32);
@@ -22,16 +22,18 @@ interface IBtcRelayView {
 
 contract BtcRelay is IBtcRelay, IBtcRelayView {
 
-    using StoredBlockHeader for bytes;
-    using StoredBlockHeaderImpl for bytes;
+    using StoredBlockHeaderImpl for StoredBlockHeader;
+
+    bool immutable _clampBlockTarget;
 
     uint256 chainWorkAndBlockheight; //Chainwork is stored in upper most 224-bits and blockheight is saved in the least significant 32-bits
     mapping(uint256 => bytes32) mainChain;
     mapping(address => mapping(uint256 => Fork)) forks;
 
     //Initialize the btc relay with the provided stored_header
-    constructor(bytes memory storedHeader) {
-        storedHeader.verifyOutOfBounds();
+    constructor(StoredBlockHeader memory storedHeader, bool clampBlockTarget) {
+        _clampBlockTarget = clampBlockTarget;
+
         bytes32 commitHash = storedHeader.hash();
 
         //Save the initial stored header
@@ -62,7 +64,7 @@ contract BtcRelay is IBtcRelay, IBtcRelayView {
     function submitMainBlockheaders(bytes calldata data) external {
         require(data.length >= 208, "submitMain: no headers");
 
-        bytes memory storedHeader = StoredBlockHeader.fromCalldata(data, 0);
+        StoredBlockHeader memory storedHeader = StoredBlockHeaderImpl.fromCalldata(data, 0);
         
         //Verify stored header is latest committed
         uint256 blockHeight = chainWorkAndBlockheight & 0xffffffff;
@@ -72,7 +74,7 @@ contract BtcRelay is IBtcRelay, IBtcRelayView {
         //Proccess new block headers
         for(uint256 i = 160; i < data.length; i += 48) {
             //Process the blockheader
-            bytes32 blockHash = storedHeader.updateChain(data, i, block.timestamp);
+            bytes32 blockHash = storedHeader.updateChain(data, i, block.timestamp, _clampBlockTarget);
             blockHeight = storedHeader.blockHeight();
 
             //Write header commitment
@@ -91,13 +93,7 @@ contract BtcRelay is IBtcRelay, IBtcRelayView {
     function submitShortForkBlockheaders(bytes calldata data) external {
         require(data.length >= 208, "submitMain: no headers");
 
-        bytes memory storedHeader;
-        assembly {
-            storedHeader := mload(0x40)
-            mstore(0x40, add(storedHeader, 192))
-            mstore(storedHeader, 160)
-            calldatacopy(add(storedHeader, 32), data.offset, 160)
-        }
+        StoredBlockHeader memory storedHeader = StoredBlockHeaderImpl.fromCalldata(data, 0);
 
         //Verify stored header is committed
         uint256 _chainWorkAndBlockheight = chainWorkAndBlockheight;
@@ -113,7 +109,7 @@ contract BtcRelay is IBtcRelay, IBtcRelayView {
         bytes32 blockHash;
         for(uint256 i = 160; i < data.length; i += 48) {
             //Process the blockheader
-            blockHash = storedHeader.updateChain(data, i, block.timestamp);
+            blockHash = storedHeader.updateChain(data, i, block.timestamp, _clampBlockTarget);
             blockHeight = storedHeader.blockHeight();
 
             //Write header commitment
@@ -140,13 +136,7 @@ contract BtcRelay is IBtcRelay, IBtcRelayView {
         require(data.length >= 208, "fork: no headers");
         require(forkId != 0, "fork: forkId 0 reserved");
 
-        bytes memory storedHeader;
-        assembly {
-            storedHeader := mload(0x40)
-            mstore(0x40, add(storedHeader, 192))
-            mstore(storedHeader, 160)
-            calldatacopy(add(storedHeader, 32), data.offset, 160)
-        }
+        StoredBlockHeader memory storedHeader = StoredBlockHeaderImpl.fromCalldata(data, 0);
 
         uint256 _chainWorkAndBlockheight = chainWorkAndBlockheight;
         bytes32 commitHash = storedHeader.hash();
@@ -173,7 +163,7 @@ contract BtcRelay is IBtcRelay, IBtcRelayView {
         uint256 forkTipBlockHeight;
         for(uint256 i = 160; i < data.length; i += 48) {
             //Process the blockheader
-            blockHash = storedHeader.updateChain(data, i, block.timestamp);
+            blockHash = storedHeader.updateChain(data, i, block.timestamp, _clampBlockTarget);
             forkTipBlockHeight = storedHeader.blockHeight();
 
             //Write header commitment
@@ -222,7 +212,7 @@ contract BtcRelay is IBtcRelay, IBtcRelayView {
         return chainWorkAndBlockheight & 0xffffffff;
     }
     
-    function verifyBlockheader(bytes memory storedHeader) external view returns (uint256) {
+    function verifyBlockheader(StoredBlockHeader memory storedHeader) external view returns (uint256) {
         return _verifyBlockheaderHash(storedHeader.blockHeight(), storedHeader.hash());
     }
 

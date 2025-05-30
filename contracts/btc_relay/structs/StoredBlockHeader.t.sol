@@ -1,36 +1,53 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.28;
 
-import {Test} from "forge-std/Test.sol";
-import {console} from "forge-std/console.sol";
-
 import "./StoredBlockHeader.sol";
-import "./BlockHeader.sol";
 
-contract StoredBlockHeaderTestWrapper {
-    using StoredBlockHeaderImpl for bytes;
-
-    function tStoredBlockheader(bytes memory storedblockheader, bytes calldata headers) public {
-        // console.log("%x", uint256(headers.dblSha256Hash(0)));
-        storedblockheader.updateChain(headers, 0, 1800000000);
+contract StoredBlockHeaderWrapper {
+    function fromCalldata(bytes calldata value, uint256 offset) pure external returns (StoredBlockHeader memory storedHeader) {
+        return StoredBlockHeaderImpl.fromCalldata(value, offset);
     }
-
-}
-
-contract StoredBlockHeaderTest is Test {
-
-    using StoredBlockHeader for bytes;
-    StoredBlockHeaderTestWrapper wrapper;
-
-    function setUp() public {
-        wrapper = new StoredBlockHeaderTestWrapper();
+    function fromMemory(bytes memory value, uint256 offset) pure external returns (StoredBlockHeader memory storedHeader) {
+        return StoredBlockHeaderImpl.fromMemory(value, offset);
     }
-
-    function test_storedBlockheaderRead() public {
-        bytes memory storedblockheader = hex"00000020a5376a85ea4e0b982e5305d0fb17b57307d7b4e20398000000000000000000001d5649615cffcd110ad492ae83c54034f12d41f44dd69094c875b750539e1031f65afc58731c02187a15fac4000000000000000000000000000000000000000000501ba97ac01f852a2537100007111b58eee9a658fc438658fc45de58fc483658fc4a8e58fc4ce658fc4f3e58fc519658fc53ee58fc564658fc589e";
-        // console.log("%x", uint256(storedblockheader.headerDblSha256Hash()));
-        bytes memory headers = hex"00000020da44094fbe83dd0c7567d2dede1cd632a844eecdc80469b2d38173a38adb6d37fc5bfc58731c021805c5ce0a";
-        wrapper.tStoredBlockheader(storedblockheader, headers);
+    function header_version(StoredBlockHeader memory storedHeader) pure external returns (uint256) {
+        return StoredBlockHeaderImpl.header_version(storedHeader);
     }
-
+    function header_previousBlockhash(StoredBlockHeader memory storedHeader) pure external returns (bytes32) {
+        return StoredBlockHeaderImpl.header_previousBlockhash(storedHeader);
+    }
+    function header_merkleRoot(StoredBlockHeader memory storedHeader) pure external returns (bytes32) {
+        return StoredBlockHeaderImpl.header_merkleRoot(storedHeader);
+    }
+    function header_timestamp(StoredBlockHeader memory storedHeader) pure external returns (uint256) {
+        return StoredBlockHeaderImpl.header_timestamp(storedHeader);
+    }
+    function header_reversedNbits(StoredBlockHeader memory storedHeader) pure external returns (uint256) {
+        return StoredBlockHeaderImpl.header_reversedNbits(storedHeader);
+    }
+    function header_nonce(StoredBlockHeader memory storedHeader) pure external returns (uint256) {
+        return StoredBlockHeaderImpl.header_nonce(storedHeader);
+    }
+    function chainWork(StoredBlockHeader memory storedHeader) pure external returns (uint256) {
+        return StoredBlockHeaderImpl.chainWork(storedHeader);
+    }
+    function blockHeight(StoredBlockHeader memory storedHeader) pure external returns (uint256) {
+        return StoredBlockHeaderImpl.blockHeight(storedHeader);
+    }
+    function lastDiffAdjustment(StoredBlockHeader memory storedHeader) pure external returns (uint256) {
+        return StoredBlockHeaderImpl.lastDiffAdjustment(storedHeader);
+    }
+    function previousBlockTimestamps(StoredBlockHeader memory storedHeader) pure external returns (uint256[10] memory) {
+        return StoredBlockHeaderImpl.previousBlockTimestamps(storedHeader);
+    }
+    function header_blockhash(StoredBlockHeader memory storedHeader) view external returns (bytes32) {
+        return StoredBlockHeaderImpl.header_blockhash(storedHeader);
+    }
+    function hash(StoredBlockHeader memory storedHeader) view external returns (bytes32) {
+        return StoredBlockHeaderImpl.hash(storedHeader);
+    }
+    function updateChain(StoredBlockHeader memory storedHeader, bytes calldata headers, uint256 offset, uint256 timestamp, bool clampTarget) view external returns (bytes32, StoredBlockHeader memory) {
+        bytes32 newBlockHash = StoredBlockHeaderImpl.updateChain(storedHeader, headers, offset, timestamp, clampTarget);
+        return (newBlockHash, storedHeader);
+    }
 }
