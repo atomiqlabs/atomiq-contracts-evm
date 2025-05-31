@@ -84,29 +84,41 @@ export type BitcoindBlockheader = {
 }
 
 export async function getBlockhash(height: number): Promise<string> {
-    return (await (await fetch(bitcoindRpc, {method: "POST", body: JSON.stringify({
+    await new Promise(resolve => setTimeout(resolve, 100));
+    const res = (await (await fetch(bitcoindRpc, {method: "POST", body: JSON.stringify({
         "jsonrpc":"1.0","id":0,"method":"getblockhash","params":[height]
-    })})).json()).result;
+    })})).json());
+    if(res.result==null) throw new Error(JSON.stringify(res));
+    return res.result;
 }
 
 export async function getBlockheader(height: number): Promise<BitcoindBlockheader> {
+    await new Promise(resolve => setTimeout(resolve, 100));
     const blockhash = await getBlockhash(height);
-    return (await (await fetch(bitcoindRpc, {method: "POST", body: JSON.stringify({
+    const res = (await (await fetch(bitcoindRpc, {method: "POST", body: JSON.stringify({
         "jsonrpc":"1.0","id":0,"method":"getblockheader","params":[blockhash]
-    })})).json()).result;
+    })})).json());
+    if(res.result==null) throw new Error(JSON.stringify(res));
+    return res.result;
 }
 
 export async function getBlockWithTransactions(height: number): Promise<BitcoinBlockWithTransactions> {
+    await new Promise(resolve => setTimeout(resolve, 100));
     const blockhash = await getBlockhash(height);
-    return (await (await fetch(bitcoindRpc, {method: "POST", body: JSON.stringify({
+    const res = (await (await fetch(bitcoindRpc, {method: "POST", body: JSON.stringify({
         "jsonrpc":"1.0","id":0,"method":"getblock","params":[blockhash, 1]
-    })})).json()).result;
+    })})).json());
+    if(res.result==null) throw new Error(JSON.stringify(res));
+    return res.result;
 }
 
 export async function getTransaction(txId: string): Promise<BitcoindTransaction> {
-    return (await (await fetch(bitcoindRpc, {method: "POST", body: JSON.stringify({
+    await new Promise(resolve => setTimeout(resolve, 100));
+    const res = (await (await fetch(bitcoindRpc, {method: "POST", body: JSON.stringify({
         "jsonrpc":"1.0","id":0,"method":"getrawtransaction","params":[txId, true]
-    })})).json()).result;
+    })})).json());
+    if(res.result==null) throw new Error(JSON.stringify(res));
+    return res.result;
 }
 
 export function randomBitcoinHeight(): number {

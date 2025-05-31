@@ -16,9 +16,9 @@ interface IReputationTracker {
 
 contract ReputationTracker is IReputationTracker {
 
-    uint256 public constant REPUTATION_SUCCESS = 0;
-    uint256 public constant REPUTATION_COOP_REFUND = 1;
-    uint256 public constant REPUTATION_FAILED = 2;
+    uint256 internal constant REPUTATION_SUCCESS = 0;
+    uint256 internal constant REPUTATION_COOP_REFUND = 1;
+    uint256 internal constant REPUTATION_FAILED = 2;
 
     using ReputationStateImpl for ReputationState;
 

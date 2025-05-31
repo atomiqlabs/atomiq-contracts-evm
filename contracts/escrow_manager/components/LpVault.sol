@@ -10,7 +10,7 @@ struct LpVaultBalanceQuery {
 
 interface ILpVault {
     //Deposit funds to the LP vault
-    function deposit(address token, uint256 amount) external;
+    function deposit(address token, uint256 amount) external payable;
     //Withdraw funds from the LP vault
     function withdraw(address token, uint256 amount, address destination) external;
     //Returns LP vault balances, the data parameter is in the format (owner, tokenAddress)
@@ -22,7 +22,7 @@ contract LpVault is ILpVault {
     mapping(address => mapping(address => uint256)) _lpVault;
 
     //Public external functions
-    function deposit(address token, uint256 amount) external {
+    function deposit(address token, uint256 amount) external payable {
         _lpVault[msg.sender][token] += amount;
         TransferUtils.transferIn(token, msg.sender, amount);
     }

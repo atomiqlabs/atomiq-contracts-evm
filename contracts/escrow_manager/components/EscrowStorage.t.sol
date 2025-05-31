@@ -9,7 +9,7 @@ contract EscrowStorageWrapper is EscrowStorage {
     function EscrowStorage_commit(EscrowData calldata escrow) external returns (bytes32 escrowHash) {
         return _EscrowStorage_commit(escrow);
     }
-    function EscrowStorage_finalize(EscrowData calldata escrow, bool success) internal returns (bytes32 escrowHash) {
+    function EscrowStorage_finalize(EscrowData calldata escrow, bool success) external returns (bytes32 escrowHash) {
         return _EscrowStorage_finalize(escrow, success);
     }
 }

@@ -1,93 +1,118 @@
 import {
     loadFixture,
 } from "@nomicfoundation/hardhat-toolbox/network-helpers";
-import { assert } from "chai";
+import { assert, expect } from "chai";
 import hre from "hardhat";
+import { EscrowDataType, getEscrowHash, getRandomEscrowData } from "../../utils/evm/escrow_data";
 
-function getEscrowData(flags: bigint, securityDeposit: bigint, claimerBounty: bigint) {
-    return {
-        offerer: "0x0000000000000000000000000000000000000000",
-        claimer: "0x0000000000000000000000000000000000000000",
-        token: "0x0000000000000000000000000000000000000000",
-        refundHandler: "0x0000000000000000000000000000000000000000",
-        claimHandler: "0x0000000000000000000000000000000000000000",
-        flags,
-        claimData: "0x0000000000000000000000000000000000000000000000000000000000000000",
-        refundData: "0x0000000000000000000000000000000000000000000000000000000000000000",
-        amount: 0n,
-        depositToken: "0x0000000000000000000000000000000000000000",
-        securityDeposit,
-        claimerBounty
-    };
-}
-        
-describe("Escrow", function () {
+describe("EscrowStorage", function () {
     async function deploy() {
-        const EscrowDataWrapper = await hre.ethers.getContractFactory("EscrowDataWrapper");
-        const contract = await EscrowDataWrapper.deploy();
+        const EscrowStorageWrapper = await hre.ethers.getContractFactory("EscrowStorageWrapper");
+        const contract = await EscrowStorageWrapper.deploy();
 
-        return {contract};
+        async function commitAndAssert(escrowData: EscrowDataType) {
+            const txResp = await contract.EscrowStorage_commit(escrowData);
+            const responses = [
+                await contract.getState(escrowData),
+                await contract.getHashState(getEscrowHash(escrowData)),
+                (await contract.getHashStateMultiple([getEscrowHash(escrowData)]))[0]
+            ];
+            responses.forEach(resultState => {
+                assert.strictEqual(resultState.state, 1n);
+                assert.strictEqual(resultState.initBlockheight, BigInt(txResp.blockNumber));
+                assert.strictEqual(resultState.finishBlockheight, 0n);
+            });
+        }
+
+        async function finalizeAndAssert(escrowData: EscrowDataType, success: boolean) {
+            const prevState = await contract.getState(escrowData);
+            const txResp = await contract.EscrowStorage_finalize(escrowData, success);
+            const responses = [
+                await contract.getState(escrowData),
+                await contract.getHashState(getEscrowHash(escrowData)),
+                (await contract.getHashStateMultiple([getEscrowHash(escrowData)]))[0]
+            ];
+            responses.forEach(resultState => {
+                assert.strictEqual(resultState.state, success ? 2n : 3n);
+                assert.strictEqual(resultState.initBlockheight, BigInt(prevState.initBlockheight));
+                assert.strictEqual(resultState.finishBlockheight, BigInt(txResp.blockNumber));
+            });
+        }
+
+        return {contract, commitAndAssert, finalizeAndAssert};
     }
 
-    it("Parse flags", async function () {
-        const {contract} = await loadFixture(deploy);
-        {
-            const escrowData = getEscrowData(0b000n, 0n, 0n);
-            assert.strictEqual(await contract.isPayOut(escrowData), false);
-            assert.strictEqual(await contract.isPayIn(escrowData), false);
-            assert.strictEqual(await contract.isTrackingReputation(escrowData), false);
-        }
-        {
-            const escrowData = getEscrowData(0b001n, 0n, 0n);
-            assert.strictEqual(await contract.isPayOut(escrowData), true);
-            assert.strictEqual(await contract.isPayIn(escrowData), false);
-            assert.strictEqual(await contract.isTrackingReputation(escrowData), false);
-        }
-        {
-            const escrowData = getEscrowData(0b010n, 0n, 0n);
-            assert.strictEqual(await contract.isPayOut(escrowData), false);
-            assert.strictEqual(await contract.isPayIn(escrowData), true);
-            assert.strictEqual(await contract.isTrackingReputation(escrowData), false);
-        }
-        {
-            const escrowData = getEscrowData(0b011n, 0n, 0n);
-            assert.strictEqual(await contract.isPayOut(escrowData), true);
-            assert.strictEqual(await contract.isPayIn(escrowData), true);
-            assert.strictEqual(await contract.isTrackingReputation(escrowData), false);
-        }
-        {
-            const escrowData = getEscrowData(0b100n, 0n, 0n);
-            assert.strictEqual(await contract.isPayOut(escrowData), false);
-            assert.strictEqual(await contract.isPayIn(escrowData), false);
-            assert.strictEqual(await contract.isTrackingReputation(escrowData), true);
-        }
-        {
-            const escrowData = getEscrowData(0b101n, 0n, 0n);
-            assert.strictEqual(await contract.isPayOut(escrowData), true);
-            assert.strictEqual(await contract.isPayIn(escrowData), false);
-            assert.strictEqual(await contract.isTrackingReputation(escrowData), true);
-        }
-        {
-            const escrowData = getEscrowData(0b110n, 0n, 0n);
-            assert.strictEqual(await contract.isPayOut(escrowData), false);
-            assert.strictEqual(await contract.isPayIn(escrowData), true);
-            assert.strictEqual(await contract.isTrackingReputation(escrowData), true);
-        }
-        {
-            const escrowData = getEscrowData(0b111n, 0n, 0n);
-            assert.strictEqual(await contract.isPayOut(escrowData), true);
-            assert.strictEqual(await contract.isPayIn(escrowData), true);
-            assert.strictEqual(await contract.isTrackingReputation(escrowData), true);
-        }
+    it("Commit", async function () {
+        const {commitAndAssert} = await loadFixture(deploy);
+
+        await commitAndAssert(getRandomEscrowData());
     });
 
-    it("Total deposit calculation", async function () {
+    it("Invalid commit twice", async function () {
         const {contract} = await loadFixture(deploy);
 
-        assert.strictEqual(await contract.getTotalDeposit(getEscrowData(0n, 0n, 0n)), 0n);
-        assert.strictEqual(await contract.getTotalDeposit(getEscrowData(0n, 100n, 100n)), 100n);
-        assert.strictEqual(await contract.getTotalDeposit(getEscrowData(0n, 150n, 100n)), 150n);
-        assert.strictEqual(await contract.getTotalDeposit(getEscrowData(0n, 100n, 150n)), 150n);
+        const escrowData = getRandomEscrowData();
+        await contract.EscrowStorage_commit(escrowData);
+        await expect(contract.EscrowStorage_commit(escrowData)).to.be.revertedWith("_commit: Already committed");
+    });
+
+    it("Commit 2 different", async function () {
+        const {contract, commitAndAssert} = await loadFixture(deploy);
+
+        const escrowData1 = getRandomEscrowData();
+        const escrowData2 = getRandomEscrowData();
+        await commitAndAssert(escrowData1);
+        await commitAndAssert(escrowData2);
+
+        const [resultState1, resultState2] = await contract.getHashStateMultiple([getEscrowHash(escrowData1), getEscrowHash(escrowData2)]);
+        assert.strictEqual(resultState1.state, 1n);
+        assert.strictEqual(resultState2.state, 1n);
+    });
+
+    it("Commit & finalize success", async function () {
+        const {contract, commitAndAssert, finalizeAndAssert} = await loadFixture(deploy);
+
+        const escrowData1 = getRandomEscrowData();
+        await commitAndAssert(escrowData1);
+        await finalizeAndAssert(escrowData1, true);
+    });
+
+    it("Commit & finalize not success", async function () {
+        const {contract, commitAndAssert, finalizeAndAssert} = await loadFixture(deploy);
+
+        const escrowData1 = getRandomEscrowData();
+        await commitAndAssert(escrowData1);
+        await finalizeAndAssert(escrowData1, false);
+    });
+
+    it("Invalid commit, finalize, try to re-commit", async function () {
+        const {contract, commitAndAssert, finalizeAndAssert} = await loadFixture(deploy);
+
+        const escrowData1 = getRandomEscrowData();
+        await commitAndAssert(escrowData1);
+        await finalizeAndAssert(escrowData1, false);
+        await expect(contract.EscrowStorage_commit(escrowData1)).to.be.revertedWith("_commit: Already committed");
+    });
+
+    it("Invalid finalize, not committed", async function () {
+        const {contract} = await loadFixture(deploy);
+
+        const escrowData1 = getRandomEscrowData();
+        await expect(contract.EscrowStorage_finalize(escrowData1, true)).to.be.revertedWith("_finalize: Not committed");
+    });
+
+    it("Commit 2 different, finalize 1", async function () {
+        const {contract, commitAndAssert, finalizeAndAssert} = await loadFixture(deploy);
+
+        const escrowData1 = getRandomEscrowData();
+        const escrowData2 = getRandomEscrowData();
+        await commitAndAssert(escrowData1);
+        await commitAndAssert(escrowData2);
+        await finalizeAndAssert(escrowData1, true);
+
+        const [resultState1, resultState2] = await contract.getHashStateMultiple([getEscrowHash(escrowData1), getEscrowHash(escrowData2)]);
+        assert.strictEqual(resultState1.state, 2n);
+        assert.strictEqual(resultState2.state, 1n);
     });
 
 });

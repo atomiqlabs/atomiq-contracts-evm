@@ -3,22 +3,14 @@ import {
 } from "@nomicfoundation/hardhat-toolbox/network-helpers";
 import { assert } from "chai";
 import hre from "hardhat";
+import { getEscrowHash, getRandomEscrowData } from "../../utils/evm/escrow_data";
 
 function getEscrowData(flags: bigint, securityDeposit: bigint, claimerBounty: bigint) {
-    return {
-        offerer: "0x0000000000000000000000000000000000000000",
-        claimer: "0x0000000000000000000000000000000000000000",
-        token: "0x0000000000000000000000000000000000000000",
-        refundHandler: "0x0000000000000000000000000000000000000000",
-        claimHandler: "0x0000000000000000000000000000000000000000",
-        flags,
-        claimData: "0x0000000000000000000000000000000000000000000000000000000000000000",
-        refundData: "0x0000000000000000000000000000000000000000000000000000000000000000",
-        amount: 0n,
-        depositToken: "0x0000000000000000000000000000000000000000",
-        securityDeposit,
-        claimerBounty
-    };
+    const escrowData = getRandomEscrowData();
+    escrowData.flags = flags;
+    escrowData.securityDeposit = securityDeposit;
+    escrowData.claimerBounty = claimerBounty;
+    return escrowData;
 }
         
 describe("Escrow", function () {
@@ -88,6 +80,15 @@ describe("Escrow", function () {
         assert.strictEqual(await contract.getTotalDeposit(getEscrowData(0n, 100n, 100n)), 100n);
         assert.strictEqual(await contract.getTotalDeposit(getEscrowData(0n, 150n, 100n)), 150n);
         assert.strictEqual(await contract.getTotalDeposit(getEscrowData(0n, 100n, 150n)), 150n);
+    });
+
+    it("Random hash", async function () {
+        const {contract} = await loadFixture(deploy);
+
+        for(let i=0;i<10;i++) {
+            const escrowData = getRandomEscrowData();
+            assert.strictEqual(await contract.getStructHash(escrowData), getEscrowHash(escrowData));
+        }
     });
 
 });

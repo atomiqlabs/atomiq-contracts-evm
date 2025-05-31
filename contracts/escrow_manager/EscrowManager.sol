@@ -17,7 +17,7 @@ import "./Events.sol";
 
 interface IEscrowManager {
     //Initializes the escrow
-    function initialize(EscrowData calldata escrow, bytes calldata signature, uint256 timeout, bytes calldata _extraData) external;
+    function initialize(EscrowData calldata escrow, bytes calldata signature, uint256 timeout, bytes calldata _extraData) external payable;
     //Claims the escrow by providing a witness to the claim handler
     function claim(EscrowData calldata escrow, bytes calldata witness) external;
     //Refunds the escrow by providing a witness to the refund handler
@@ -32,7 +32,7 @@ contract EscrowManager is EscrowStorage, LpVault, ReputationTracker, EIP712Sigha
 
     //_extraData parameter is used for data-availability/propagation of escrow-specific extraneous data on-chain
     // and is therefore unused in the function itself
-    function initialize(EscrowData calldata escrow, bytes calldata signature, uint256 timeout, bytes calldata _extraData) external {
+    function initialize(EscrowData calldata escrow, bytes calldata signature, uint256 timeout, bytes calldata _extraData) external payable {
         //Check expiry
         require(block.timestamp < timeout, "init: Authorization expired");
 

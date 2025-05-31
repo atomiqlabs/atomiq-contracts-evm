@@ -11,10 +11,10 @@ interface IEscrowStorageView {
 }
 
 contract EscrowStorage is IEscrowStorageView {
-    uint8 public constant STATE_NOT_COMMITTED = 0;
-    uint8 public constant STATE_COMMITTED = 1;
-    uint8 public constant STATE_CLAIMED = 2;
-    uint8 public constant STATE_REFUNDED = 3;
+    uint8 internal constant STATE_NOT_COMMITTED = 0;
+    uint8 internal constant STATE_COMMITTED = 1;
+    uint8 internal constant STATE_CLAIMED = 2;
+    uint8 internal constant STATE_REFUNDED = 3;
 
     using EscrowDataImpl for EscrowData;
 
