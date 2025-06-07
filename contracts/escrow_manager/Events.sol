@@ -5,4 +5,5 @@ library Events {
     event Initialize(address indexed offerer, address indexed claimer, bytes32 indexed escrowHash);
     event Claim(address indexed offerer, address indexed claimer, bytes32 indexed escrowHash, address claimHandler, bytes witnessResult);
     event Refund(address indexed offerer, address indexed claimer, bytes32 indexed escrowHash, address refundHandler, bytes witnessResult);
+    event ExecutionError(bytes32 indexed escrowHash, bytes error);
 }

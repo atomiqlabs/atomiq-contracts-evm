@@ -234,11 +234,16 @@ library BitcoinTxImpl {
         result = Endianness.reverseUint32(result);
     }
 
+    function inputsCount(BitcoinTx memory self) pure internal returns (uint256 count) {
+        count = self.inputs.length / 56;
+    }
+
     //Get the UTXO of the input with the format: (txId, vout)
     function getInputUtxo(BitcoinTx memory self, uint256 vin) pure internal returns (bytes32 txId, uint256 vout) {
         bytes memory inputs = self.inputs;
+        uint256 vinOffset = vin * 56;
+        require(inputs.length > vinOffset, "btcTx: Input not found");
         assembly ("memory-safe") {
-            let vinOffset := mul(vin, 56)
             let ptr := add(add(inputs, 32), vinOffset)
             txId := mload(ptr)
             vout := and(mload(add(ptr, 4)), 0xffffffff)
@@ -249,8 +254,9 @@ library BitcoinTxImpl {
     //Returns the nSequence of the input
     function getInputNSequence(BitcoinTx memory self, uint256 vin) pure internal returns (uint256 nSequence) {
         bytes memory inputs = self.inputs;
+        uint256 vinOffset = vin * 56;
+        require(inputs.length > vinOffset, "btcTx: Input not found");
         assembly ("memory-safe") {
-            let vinOffset := mul(vin, 56)
             let ptr := add(add(inputs, 56), vinOffset) //Load 32-bytes word at offset 24 (+32 bytes length prefix), so we can isolate the nSequence stored as last 4 bytes at offset 52
             nSequence := and(mload(ptr), 0xffffffff)
         }
@@ -261,8 +267,9 @@ library BitcoinTxImpl {
     function getInputScriptHash(BitcoinTx memory self, uint256 vin) pure internal returns (bytes32 scriptHash) {
         bytes memory data = self.data;
         bytes memory inputs = self.inputs;
+        uint256 vinOffset = vin * 56;
+        require(inputs.length > vinOffset, "btcTx: Input not found");
         assembly ("memory-safe") {
-            let vinOffset := mul(vin, 56)
             let ptr := add(add(inputs, 52), vinOffset) //Load 32-bytes word at offset 20 (+32 bytes length prefix), so we can isolate scriptOffset at offset 36 and scriptLength at offset 44
             let packedData := mload(ptr)
             let scriptOffset := and(shr(64, packedData), 0xffffffffffffffff)
@@ -271,11 +278,16 @@ library BitcoinTxImpl {
         }
     }
 
+    function outputsCount(BitcoinTx memory self) pure internal returns (uint256 count) {
+        count = self.outputs.length / 24;
+    }
+
     //Get the value of the output
     function getOutputValue(BitcoinTx memory self, uint256 vout) pure internal returns (uint256 value) {
         bytes memory outputs = self.outputs;
+        uint256 voutOffset = vout * 24;
+        require(outputs.length > voutOffset, "btcTx: Output not found");
         assembly ("memory-safe") {
-            let voutOffset := mul(vout, 24)
             let ptr := add(add(outputs, 8), voutOffset)
             value := and(mload(ptr), 0xffffffffffffffff)
         }
@@ -286,8 +298,9 @@ library BitcoinTxImpl {
     function getOutputScriptHash(BitcoinTx memory self, uint256 vout) pure internal returns (bytes32 scriptHash) {
         bytes memory data = self.data;
         bytes memory outputs = self.outputs;
+        uint256 voutOffset = vout * 24;
+        require(outputs.length > voutOffset, "btcTx: Output not found");
         assembly ("memory-safe") {
-            let voutOffset := mul(vout, 24)
             let ptr := add(add(outputs, 24), voutOffset)
             let packedData := mload(ptr)
             let scriptOffset := and(shr(64, packedData), 0xffffffffffffffff)

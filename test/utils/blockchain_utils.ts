@@ -4,6 +4,10 @@ import { fromBuffer, toBuffer } from "./buffer_utils";
 import { computeNewTarget, getDifficulty, nbitsToTarget, targetTonBits } from "./nbits";
 import { BitcoindBlockheader } from "./bitcoin_rpc_utils";
 
+export function mineRandomBitcoinBlock(timestampNumber: number, nbits: string | bigint) {
+    return mineBitcoinBlock(randomBytes(32).toString("hex"), timestampNumber, nbits, timestampNumber);
+}
+
 export function mineBitcoinBlock(
     previousBlockhash: string, 
     timestampNumber: number,
@@ -13,8 +17,8 @@ export function mineBitcoinBlock(
     previousBlockheight: number = -1, 
     targetnBits: string | bigint = nbits, 
     merkleRoot: string = randomBytes(32).toString("hex"),
-    previousBlockTimestamps?: number[],
-    previousTimestamp?: number
+    previousBlockTimestamps: number[] = [timestampNumber, timestampNumber, timestampNumber, timestampNumber, timestampNumber, timestampNumber, timestampNumber, timestampNumber, timestampNumber, timestampNumber],
+    previousTimestamp: number = timestampNumber
 ): BitcoindBlockheader & {epochstart: number, previousBlockTimestamps?: number[]} {
     const nbitsBuffer = Buffer.from(nbits.toString(16), "hex");
     const realTarget = nbitsToTarget(nbitsBuffer);

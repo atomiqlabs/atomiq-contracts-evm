@@ -8,6 +8,14 @@ library TransferUtils {
 
     using SafeERC20 for IERC20;
 
+    function balanceOf(address token, address owner) view internal returns (uint256) {
+        if(token==address(0x0)) {
+            return owner.balance;
+        } else {
+            return IERC20(token).balanceOf(owner);
+        }
+    }
+
     //Transfer ERC20 tokens or native token to the current contract using transfer_from function
     //NOTE: Extra care needs to be taken to not call this function multiple times with native token address (0x0),
     // since this only checks msg.value and there is no way to decrement it during runtime

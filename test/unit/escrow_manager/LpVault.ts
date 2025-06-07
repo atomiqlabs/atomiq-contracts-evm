@@ -172,7 +172,7 @@ describe("LpVault", function () {
 
         await erc20Contract.approve(await contract.getAddress(), 1000n);
         await contract.deposit(await erc20Contract.getAddress(), 1000n);
-        await expect(contract.withdraw(await erc20Contract.getAddress(), 2000n, randomRecipient)).to.be.revertedWithPanic(0x11);
+        await expect(contract.withdraw(await erc20Contract.getAddress(), 2000n, randomRecipient)).to.be.revertedWith("withdraw: not enough balance");
     });
 
     it("Invalid withdraw more than deposited (contract has enough token)", async function () {
@@ -187,7 +187,7 @@ describe("LpVault", function () {
         await erc20Contract.connect(account2).approve(await contract.getAddress(), 2000n);
         await contract.connect(account2).deposit(await erc20Contract.getAddress(), 2000n);
 
-        await expect(contract.withdraw(await erc20Contract.getAddress(), 2000n, randomRecipient)).to.be.revertedWithPanic(0x11);
+        await expect(contract.withdraw(await erc20Contract.getAddress(), 2000n, randomRecipient)).to.be.revertedWith("withdraw: not enough balance");
     });
 
     it("Transfer out", async function () {
@@ -229,6 +229,6 @@ describe("LpVault", function () {
         const {contract, erc20Contract, account1} = await loadFixture(deploy);
 
         await contract.LpVault_transferOut(await erc20Contract.getAddress(), account1.address, 1000n);
-        await expect(contract.LpVault_transferIn(await erc20Contract.getAddress(), account1.address, 2000n)).to.be.revertedWithPanic(0x11);
+        await expect(contract.LpVault_transferIn(await erc20Contract.getAddress(), account1.address, 2000n)).to.be.revertedWith("_xferIn: not enough balance");
     });
 });

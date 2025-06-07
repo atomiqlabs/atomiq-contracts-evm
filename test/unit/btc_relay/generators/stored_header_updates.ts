@@ -20,7 +20,7 @@ function shuffle<T>(array: T[]): T[] {
 
     return array;
 }
-const getRandomTimestamp = () => Math.floor(Math.random() * (Date.now()/1000));
+const getRandomTimestamp = () => 3000 * 4000 + Math.floor(Math.random() * ((Date.now()/1000) - 3000 * 4000));
 const getRandomEpoch = () => Math.floor(500 * Math.random());
 const getRandomnBits = () => {
     const randBytes = randomBytes(3);
@@ -178,6 +178,24 @@ export function generateRandomInvalidTimestampMedianUpdate() {
     const endBlock = mineBitcoinBlock(
         initialBlock.hash, medianTimestamp - 300 - Math.floor(Math.random() * 200), //Make sure this block is mined before the median timestamp, therefore invalid
         initialBlock.bits, initialBlock.epochstart, initialBlock.chainwork, initialBlock.height, undefined, undefined, previousBlockTimestamps, initialBlock.time
+    );
+
+    return [initialBlock, endBlock];
+}
+
+export function generateRandomInvalidTimestampFutureUpdate() {
+    const initialTimestamp = Math.floor(Date.now()/1000);
+    const initialHeight = getRandomBlockheight();
+
+    const blocksFromEpochStart = initialHeight % 2016;
+    const initialBlock = mineBitcoinBlock(
+        randomBytes(32).toString("hex"), initialTimestamp, 
+        getRandomnBits(), initialTimestamp - (blocksFromEpochStart*600), getRandomChainwork(), initialHeight-1
+    );
+
+    const endBlock = mineBitcoinBlock(
+        initialBlock.hash, initialTimestamp + 24*60*60, //Make sure this block is mined in the future
+        initialBlock.bits, initialBlock.epochstart, initialBlock.chainwork, initialBlock.height, undefined, undefined, undefined, initialBlock.time
     );
 
     return [initialBlock, endBlock];

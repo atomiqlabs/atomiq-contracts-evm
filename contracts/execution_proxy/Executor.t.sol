@@ -1,0 +1,26 @@
+// SPDX-License-Identifier: Apache-2.0
+pragma solidity ^0.8.28;
+
+import "../transfer_utils/TransferUtils.sol";
+import "./ExecutionProxy.sol";
+import "./structs/ExecutionAction.sol";
+import "./Executor.sol";
+
+event ExecutorWrapperEvent(bool success, bytes callError);
+
+contract ExecutorWrapper is Executor {
+
+    receive() external payable {}
+
+    function execute(
+        address token, uint256 value, ExecutionAction calldata executionAction, address tokensDestination
+    ) external payable {
+        (bool success, bytes memory callError) = _execute(token, value, executionAction, tokensDestination);
+        emit ExecutorWrapperEvent(success, callError);
+    }
+    
+    function getExecutionProxy() view external returns (address) {
+        return address(executionProxy);
+    }
+
+}

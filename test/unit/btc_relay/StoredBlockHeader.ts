@@ -9,7 +9,7 @@ import { BitcoindBlockheader, getBlockheader, randomBitcoinEpoch, randomBitcoinH
 import { reverseUint32 } from "../../utils/endianness";
 import { serializeBitcoindStoredBlockheader, serializeStoredBlockheader } from "../../utils/evm/stored_blockheader";
 import { randomUnsignedBigInt } from "../../utils/random";
-import { generateRandomInvalidnBitsDiffAdjustmentUpdate, generateRandomInvalidnBitsUpdate, generateRandomInvalidPoWUpdate, generateRandomInvalidPrevBlockhashUpdate, generateRandomInvalidTimestampMedianUpdate, generateRandomPoWAdjustmentBlockUpdate, generateRandomValidBlockUpdate, generateRandomValidTimestampMedianUpdate, generateRealValidBlockUpdate } from "./generators/stored_header_updates";
+import { generateRandomInvalidnBitsDiffAdjustmentUpdate, generateRandomInvalidnBitsUpdate, generateRandomInvalidPoWUpdate, generateRandomInvalidPrevBlockhashUpdate, generateRandomInvalidTimestampFutureUpdate, generateRandomInvalidTimestampMedianUpdate, generateRandomPoWAdjustmentBlockUpdate, generateRandomValidBlockUpdate, generateRandomValidTimestampMedianUpdate, generateRealValidBlockUpdate } from "./generators/stored_header_updates";
 import { mineBitcoinBlock } from "../../utils/blockchain_utils";
 
 
@@ -41,14 +41,16 @@ describe("StoredBlockHeader", function () {
         async function assertUpdateChain(
             first: BitcoindBlockheader & {epochstart: number, previousBlockTimestamps?: number[]},
             second: BitcoindBlockheader & {epochstart: number, previousBlockTimestamps?: number[]},
-            clampTarget: boolean
+            clampTarget: boolean,
+            assert: boolean = true,
+            timestamp?: number
         ) {
             const serialized = serializeBitcoindStoredBlockheader(first);
             const parsedStoredBlockHeader = {data: [...(await contract.fromCalldata(serialized, 0))[0]]} as any;
-            await assertStoredBlockheader(parsedStoredBlockHeader, first);
+            if(assert) await assertStoredBlockheader(parsedStoredBlockHeader, first);
 
-            const result = await contract.updateChain(parsedStoredBlockHeader, serializeBitcoindBlockheader(second), 0, 0xffffffff, clampTarget);
-            await assertStoredBlockheader({data: [...(result[1])[0]]} as any, second);
+            const result = await contract.updateChain(parsedStoredBlockHeader, serializeBitcoindBlockheader(second), 0, timestamp ?? 0xffffffff, clampTarget);
+            if(assert) await assertStoredBlockheader({data: [...(result[1])[0]]} as any, second);
         }
 
         return { contract, assertStoredBlockheader, assertUpdateChain };
@@ -207,7 +209,7 @@ describe("StoredBlockHeader", function () {
 
         for(let i=0;i<10;i++) {
             const [first, second] = generateRandomInvalidnBitsUpdate();
-            await expect(assertUpdateChain(first, second, false)).to.be.revertedWith("updateChain: nbits");
+            await expect(assertUpdateChain(first, second, false, false)).to.be.revertedWith("updateChain: nbits");
         }
     });
 
@@ -216,7 +218,7 @@ describe("StoredBlockHeader", function () {
 
         for(let i=0;i<10;i++) {
             const [first, second] = generateRandomInvalidnBitsDiffAdjustmentUpdate();
-            await expect(assertUpdateChain(first, second, false)).to.be.revertedWith("updateChain: new nbits");
+            await expect(assertUpdateChain(first, second, false, false)).to.be.revertedWith("updateChain: new nbits");
         }
     });
 
@@ -226,7 +228,7 @@ describe("StoredBlockHeader", function () {
         for(let i=0;i<10;i++) {
             const [first, second] = generateRandomInvalidPrevBlockhashUpdate();
             //This fails with invalid PoW, because we don't check prev block hash
-            await expect(assertUpdateChain(first, second, false)).to.be.revertedWith("updateChain: invalid PoW"); 
+            await expect(assertUpdateChain(first, second, false, false)).to.be.revertedWith("updateChain: invalid PoW"); 
         }
     });
 
@@ -235,7 +237,16 @@ describe("StoredBlockHeader", function () {
 
         for(let i=0;i<10;i++) {
             const [first, second] = generateRandomInvalidTimestampMedianUpdate();
-            await expect(assertUpdateChain(first, second, false)).to.be.revertedWith("updateChain: timestamp median"); 
+            await expect(assertUpdateChain(first, second, false, false)).to.be.revertedWith("updateChain: timestamp median"); 
+        }
+    });
+
+    it("Invalid update random block, due to timestamp being too far in the future", async function () {
+        const { assertUpdateChain } = await loadFixture(deploy);
+
+        for(let i=0;i<10;i++) {
+            const [first, second] = generateRandomInvalidTimestampFutureUpdate();
+            await expect(assertUpdateChain(first, second, false, false, first.time)).to.be.revertedWith("updateChain: timestamp future"); 
         }
     });
 

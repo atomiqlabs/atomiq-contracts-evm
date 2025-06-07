@@ -24,11 +24,11 @@ contract BtcRelay is IBtcRelay, IBtcRelayView {
 
     using StoredBlockHeaderImpl for StoredBlockHeader;
 
-    bool immutable _clampBlockTarget;
-
     uint256 chainWorkAndBlockheight; //Chainwork is stored in upper most 224-bits and blockheight is saved in the least significant 32-bits
     mapping(uint256 => bytes32) mainChain;
     mapping(address => mapping(uint256 => Fork)) forks;
+
+    bool immutable _clampBlockTarget;
 
     //Initialize the btc relay with the provided stored_header
     constructor(StoredBlockHeader memory storedHeader, bool clampBlockTarget) {
@@ -102,7 +102,7 @@ contract BtcRelay is IBtcRelay, IBtcRelayView {
         require(blockHeight <= tipBlockHeight, "shortFork: future block");
         require(mainChain[blockHeight] == storedHeader.hash(), "shortFork: block commitment");
 
-        uint256 startHeight = blockHeight;
+        uint256 startHeight = blockHeight + 1;
 
         //Proccess new block headers
         bytes32 commitHash;
@@ -155,7 +155,7 @@ contract BtcRelay is IBtcRelay, IBtcRelayView {
         } else {
             //Verify stored header is the tip of the fork chain
             uint256 forkTipHeight = forks[msg.sender][forkId].tipHeight;
-            require(forks[msg.sender][forkId].chain[forkTipHeight] == commitHash, "fork: block commitment");
+            require(forks[msg.sender][forkId].chain[forkTipHeight] == commitHash, "fork: fork block commitment");
         }
 
         //Proccess new block headers
@@ -194,6 +194,7 @@ contract BtcRelay is IBtcRelay, IBtcRelayView {
                 mainChain[blockHeight] = forks[msg.sender][forkId].chain[blockHeight];
                 delete forks[msg.sender][forkId].chain[blockHeight];
             }
+            delete forks[msg.sender][forkId];
             
             //Emit chain re-org event
             emit Events.ChainReorg(commitHash, blockHash, forkId, msg.sender, forkStartBlockheight);

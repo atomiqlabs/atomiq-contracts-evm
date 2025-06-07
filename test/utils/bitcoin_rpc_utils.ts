@@ -92,9 +92,9 @@ export async function getBlockhash(height: number): Promise<string> {
     return res.result;
 }
 
-export async function getBlockheader(height: number): Promise<BitcoindBlockheader> {
+export async function getBlockheader(heightOrBlockhash: number | string): Promise<BitcoindBlockheader> {
     await new Promise(resolve => setTimeout(resolve, 100));
-    const blockhash = await getBlockhash(height);
+    const blockhash = typeof(heightOrBlockhash)==="string" ? heightOrBlockhash : await getBlockhash(heightOrBlockhash);
     const res = (await (await fetch(bitcoindRpc, {method: "POST", body: JSON.stringify({
         "jsonrpc":"1.0","id":0,"method":"getblockheader","params":[blockhash]
     })})).json());

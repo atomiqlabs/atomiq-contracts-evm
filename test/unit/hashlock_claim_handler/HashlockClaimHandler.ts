@@ -22,7 +22,7 @@ describe("HashlockClaimHandler", function () {
         assert.strictEqual(await contract.claim(hash, preimage), preimage);
     });
 
-    it("Valid witness with more than 32 bytes", async function () {
+    it("Invalid witness with more than 32 bytes", async function () {
         const {contract} = await loadFixture(deploy);
 
         let preimage = "0x3e034aa6ed661aff4841fcc4d6b5dac8f7985f5208655334429cc18de49d3244099b8c76d6a6e76d6e";

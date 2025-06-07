@@ -14,7 +14,8 @@ export type EscrowDataType = {
     amount: bigint,
     depositToken: string,
     securityDeposit: bigint,
-    claimerBounty: bigint
+    claimerBounty: bigint,
+    successActionCommitment: string
 };
 
 export function getRandomEscrowData() {
@@ -30,13 +31,14 @@ export function getRandomEscrowData() {
         amount: randomUnsignedBigInt(256),
         depositToken: randomAddress(),
         securityDeposit: randomUnsignedBigInt(256),
-        claimerBounty: randomUnsignedBigInt(256)
+        claimerBounty: randomUnsignedBigInt(256),
+        successActionCommitment: randomBytes32()
     };
 }
 
 export function getEscrowHash(escrowData: EscrowDataType): string {
     const encoded = hre.ethers.AbiCoder.defaultAbiCoder().encode(
-        ["tuple(address offerer, address claimer, address token, address refundHandler, address claimHandler, uint256 flags, bytes32 claimData, bytes32 refundData, uint256 amount, address depositToken, uint256 securityDeposit, uint256 claimerBounty)"],
+        ["tuple(address offerer, address claimer, address token, address refundHandler, address claimHandler, uint256 flags, bytes32 claimData, bytes32 refundData, uint256 amount, address depositToken, uint256 securityDeposit, uint256 claimerBounty, bytes32 successActionCommitment)"],
         [escrowData]
     );
     return hre.ethers.keccak256(encoded);

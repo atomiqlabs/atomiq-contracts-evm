@@ -18,7 +18,7 @@ describe("ReputationTracker", function () {
     it("Update reputation", async function () {
         const {contract, owner} = await loadFixture(deploy);
         await contract.ReputationTracker_updateReputation(0n, owner, "0x0000000000000000000000000000000000000000", "0x0000000000000000000000000000000000000000", 4877213n);
-        let result = await contract.getState([{owner, claimHandler: "0x0000000000000000000000000000000000000000", token: "0x0000000000000000000000000000000000000000"}]);
+        let result = await contract.getReputation([{owner, claimHandler: "0x0000000000000000000000000000000000000000", token: "0x0000000000000000000000000000000000000000"}]);
         assert.strictEqual(result[0][0].count, 1n);
         assert.strictEqual(result[0][0].amount, 4877213n);
         assert.strictEqual(result[0][1].count, 0n);
@@ -27,7 +27,7 @@ describe("ReputationTracker", function () {
         assert.strictEqual(result[0][2].amount, 0n);
 
         await contract.ReputationTracker_updateReputation(0n, owner, "0x0000000000000000000000000000000000000000", "0x0000000000000000000000000000000000000000", 84451485n);
-        result = await contract.getState([{owner, claimHandler: "0x0000000000000000000000000000000000000000", token: "0x0000000000000000000000000000000000000000"}]);
+        result = await contract.getReputation([{owner, claimHandler: "0x0000000000000000000000000000000000000000", token: "0x0000000000000000000000000000000000000000"}]);
         assert.strictEqual(result[0][0].count, 2n);
         assert.strictEqual(result[0][0].amount, 4877213n + 84451485n);
         assert.strictEqual(result[0][1].count, 0n);
@@ -41,7 +41,7 @@ describe("ReputationTracker", function () {
         await contract.ReputationTracker_updateReputation(0n, owner, "0x0000000000000000000000000000000000000000", "0x0000000000000000000000000000000000000000", 4877213n);
         await contract.ReputationTracker_updateReputation(1n, owner, "0x0000000000000000000000000000000000000000", "0x0000000000000000000000000000000000000000", 84451485n);
         await contract.ReputationTracker_updateReputation(2n, owner, "0x0000000000000000000000000000000000000000", "0x0000000000000000000000000000000000000000", 844518n);
-        let result = await contract.getState([{owner, claimHandler: "0x0000000000000000000000000000000000000000", token: "0x0000000000000000000000000000000000000000"}]);
+        let result = await contract.getReputation([{owner, claimHandler: "0x0000000000000000000000000000000000000000", token: "0x0000000000000000000000000000000000000000"}]);
         assert.strictEqual(result[0][0].count, 1n);
         assert.strictEqual(result[0][0].amount, 4877213n);
         assert.strictEqual(result[0][1].count, 1n);
@@ -55,7 +55,7 @@ describe("ReputationTracker", function () {
         await contract.ReputationTracker_updateReputation(0n, owner, "0x0000000000000000000000000000000000000001", "0x0000000000000000000000000000000000000000", 4877213n);
         await contract.ReputationTracker_updateReputation(0n, owner, "0x0000000000000000000000000000000000000002", "0x0000000000000000000000000000000000000000", 84451485n);
         await contract.ReputationTracker_updateReputation(0n, owner, "0x0000000000000000000000000000000000000003", "0x0000000000000000000000000000000000000000", 844518n);
-        let result = await contract.getState([
+        let result = await contract.getReputation([
             {owner, token: "0x0000000000000000000000000000000000000001", claimHandler: "0x0000000000000000000000000000000000000000"},
             {owner, token: "0x0000000000000000000000000000000000000002", claimHandler: "0x0000000000000000000000000000000000000000"},
             {owner, token: "0x0000000000000000000000000000000000000003", claimHandler: "0x0000000000000000000000000000000000000000"},
@@ -73,7 +73,7 @@ describe("ReputationTracker", function () {
         await contract.ReputationTracker_updateReputation(0n, owner, "0x0000000000000000000000000000000000000000", "0x0000000000000000000000000000000000000001", 4877213n);
         await contract.ReputationTracker_updateReputation(0n, owner, "0x0000000000000000000000000000000000000000", "0x0000000000000000000000000000000000000002", 84451485n);
         await contract.ReputationTracker_updateReputation(0n, owner, "0x0000000000000000000000000000000000000000", "0x0000000000000000000000000000000000000003", 844518n);
-        let result = await contract.getState([
+        let result = await contract.getReputation([
             {owner, token: "0x0000000000000000000000000000000000000000", claimHandler: "0x0000000000000000000000000000000000000001"},
             {owner, token: "0x0000000000000000000000000000000000000000", claimHandler: "0x0000000000000000000000000000000000000002"},
             {owner, token: "0x0000000000000000000000000000000000000000", claimHandler: "0x0000000000000000000000000000000000000003"},
@@ -91,7 +91,7 @@ describe("ReputationTracker", function () {
         await contract.ReputationTracker_updateReputation(0n, owner, "0x0000000000000000000000000000000000000001", "0x0000000000000000000000000000000000000004", 4877213n);
         await contract.ReputationTracker_updateReputation(0n, owner, "0x0000000000000000000000000000000000000002", "0x0000000000000000000000000000000000000005", 84451485n);
         await contract.ReputationTracker_updateReputation(0n, owner, "0x0000000000000000000000000000000000000003", "0x0000000000000000000000000000000000000006", 844518n);
-        let result = await contract.getState([
+        let result = await contract.getReputation([
             {owner, token: "0x0000000000000000000000000000000000000001", claimHandler: "0x0000000000000000000000000000000000000004"},
             {owner, token: "0x0000000000000000000000000000000000000002", claimHandler: "0x0000000000000000000000000000000000000005"},
             {owner, token: "0x0000000000000000000000000000000000000003", claimHandler: "0x0000000000000000000000000000000000000006"},

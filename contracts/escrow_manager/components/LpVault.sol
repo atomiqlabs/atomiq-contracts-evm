@@ -28,7 +28,11 @@ contract LpVault is ILpVault {
     }
 
     function withdraw(address token, uint256 amount, address destination) external {
-        _lpVault[msg.sender][token] -= amount; //This anyway reverts if sender doesn't have enough balance due to safe arithmetics
+        uint256 lpBalance = _lpVault[msg.sender][token];
+        require(lpBalance >= amount, "withdraw: not enough balance");
+        unchecked {
+            _lpVault[msg.sender][token] = lpBalance - amount;
+        } //We can use unchecked here, since there is an explicit check before this
         TransferUtils.transferOut(token, destination, amount);
     }
 
@@ -45,7 +49,11 @@ contract LpVault is ILpVault {
     }
 
     function _LpVault_transferIn(address token, address dst, uint256 amount) internal {
-        _lpVault[dst][token] -= amount; //This anyway reverts if sender doesn't have enough balance due to safe arithmetics
+        uint256 lpBalance = _lpVault[msg.sender][token];
+        require(lpBalance >= amount, "_xferIn: not enough balance");
+        unchecked {
+            _lpVault[dst][token] = lpBalance - amount;
+        } //We can use unchecked here, since there is an explicit check before this
     }
 
 }

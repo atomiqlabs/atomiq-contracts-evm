@@ -14,6 +14,8 @@ contract BitcoinTxIdClaimHandler {
     using StoredBlockHeaderImpl for StoredBlockHeader;
 
     function claim(bytes32 claimData, bytes calldata witness) external view returns (bytes memory witnessResult) {
+        require(witness.length >= 252, "txidlock: witness length");
+
         //Commitment
         bytes32 reversedTxId; //32-bytes
         uint256 confirmations; //4-bytes
@@ -22,11 +24,11 @@ contract BitcoinTxIdClaimHandler {
         bytes32 commitmentHash;
         assembly ("memory-safe") {
             reversedTxId := calldataload(witness.offset)
-            mstore(0, reversedTxId)
             let confirmationsAndBtcRelayContract := calldataload(add(witness.offset, 24))
-            mstore(24, confirmationsAndBtcRelayContract)
             confirmations := and(shr(160 ,confirmationsAndBtcRelayContract), 0xffffffff)
             btcRelayContract := and(confirmationsAndBtcRelayContract, 0xffffffffffffffffffffffffffffffffffffffff)
+
+            calldatacopy(0, witness.offset, 56)
             commitmentHash := keccak256(0, 56)
         }
         //Verify claim data commitment
@@ -38,8 +40,8 @@ contract BitcoinTxIdClaimHandler {
         bytes32[] calldata proof;
         assembly ("memory-safe") {
             position := and(calldataload(add(witness.offset, 188)), 0xffffffff)
-            proof.offset := add(witness.offset, 220)
-            proof.length := sub(witness.length, 220)    
+            proof.offset := add(witness.offset, 252)
+            proof.length := calldataload(add(witness.offset, 220))    
         }
 
         //Verify blockheader against the light client

@@ -34,6 +34,9 @@ struct EscrowData {
     uint256 securityDeposit;
     //Claimer bounty that can be claimed by a 3rd party claimer if he were to claim this swap on behalf of claimer
     uint256 claimerBounty;
+
+    //ExecutionAction hash commitment to be executed on claim, left 0x0 if no execution should happen on claim
+    bytes32 successActionCommitment;
 }
 
 library EscrowDataImpl {

@@ -13,6 +13,9 @@ import "./components/EIP712Sighash.sol";
 
 import "./structs/Escrow.sol";
 
+import "../execution_proxy/structs/ExecutionAction.sol";
+import "../execution_proxy/Executor.sol";
+
 import "./Events.sol";
 
 interface IEscrowManager {
@@ -20,15 +23,18 @@ interface IEscrowManager {
     function initialize(EscrowData calldata escrow, bytes calldata signature, uint256 timeout, bytes calldata _extraData) external payable;
     //Claims the escrow by providing a witness to the claim handler
     function claim(EscrowData calldata escrow, bytes calldata witness) external;
+    //Claims the escrow by providing a witness to the claim handler
+    function claimWithSuccessAction(EscrowData calldata escrow, bytes calldata witness, ExecutionAction calldata successAction) external;
     //Refunds the escrow by providing a witness to the refund handler
     function refund(EscrowData calldata escrow, bytes calldata witness) external;
     //Cooperatively refunds the escrow with a valid signature from claimer
     function cooperativeRefund(EscrowData calldata escrow, bytes calldata signature, uint256 timeout) external;
 }
 
-contract EscrowManager is EscrowStorage, LpVault, ReputationTracker, EIP712Sighash, IEscrowManager {
+contract EscrowManager is EscrowStorage, LpVault, ReputationTracker, EIP712Sighash, Executor, IEscrowManager {
 
     using EscrowDataImpl for EscrowData;
+    using ExecutionActionImpl for ExecutionAction;
 
     //_extraData parameter is used for data-availability/propagation of escrow-specific extraneous data on-chain
     // and is therefore unused in the function itself
@@ -60,29 +66,29 @@ contract EscrowManager is EscrowStorage, LpVault, ReputationTracker, EIP712Sigha
             revert("init: Caller address");
         }
 
-        //Transfer deposit
+        //Transfer deposit and escrow funds
         uint256 depositAmount = escrow.getTotalDeposit();
-        if(depositAmount > 0) {
-            //Here we check if the depositToken matches the escrow token, the escrow is payIn and
-            // transaction sender is offerer. This is done such that in case native token is used
-            // we do not call TransferUtils.transferIn multiple times, which is problematic when
-            // just checking msg.value (as the TransferUtils.transferIn does!)
-            if(!(escrow.depositToken==escrow.token && escrow.isPayIn() && msg.sender==escrow.offerer)) {
-                TransferUtils.transferIn(escrow.depositToken, msg.sender, depositAmount);
-                depositAmount = 0;
-            }
+        //Here we check if the depositToken matches the escrow token, the escrow is payIn and
+        // transaction sender is offerer. This is done such that in case native token is used
+        // we do not call TransferUtils.transferIn multiple times, which is problematic when
+        // just checking msg.value (as the TransferUtils.transferIn does!)
+        if(escrow.depositToken==escrow.token && escrow.isPayIn() && msg.sender==escrow.offerer) {
+            //Transfer funds in one go
+            _payIn(escrow.offerer, escrow.token, escrow.amount + depositAmount, true);
+        } else {
+            //Transfer funds separatelly
+            if(depositAmount > 0) TransferUtils.transferIn(escrow.depositToken, msg.sender, depositAmount);
+            _payIn(escrow.offerer, escrow.token, escrow.amount, escrow.isPayIn());
         }
-
-        //Transfer funds
-        _payIn(escrow.offerer, escrow.token, escrow.amount, escrow.isPayIn());
 
         //Emit event
         emit Events.Initialize(escrow.offerer, escrow.claimer, escrowHash);
     }
 
-    function claim(EscrowData calldata escrow, bytes calldata witness) external {
+    //Shared between claim & claim with success action
+    function _claimWithoutPayout(EscrowData calldata escrow, bytes calldata witness) internal returns (bytes32 escrowHash) {
         //Check committed & finalize
-        bytes32 escrowHash = _EscrowStorage_finalize(escrow, true);
+        escrowHash = _EscrowStorage_finalize(escrow, true);
 
         //Check claim data
         bytes memory witnessResult = IClaimHandler(escrow.claimHandler).claim(escrow.claimData, witness);
@@ -96,14 +102,31 @@ contract EscrowManager is EscrowStorage, LpVault, ReputationTracker, EIP712Sigha
         if(escrow.claimerBounty != 0) {
             TransferUtils.transferOut(escrow.depositToken, msg.sender, escrow.claimerBounty);
         }
+
+        //Pay rest of the deposit back to the claimer
         if(escrow.securityDeposit > escrow.claimerBounty) {
             TransferUtils.transferOut(escrow.depositToken, escrow.claimer, escrow.securityDeposit - escrow.claimerBounty);
         }
 
-        _payOut(escrow.claimer, escrow.token, escrow.amount, escrow.isPayOut());
-
         //Emit event
         emit Events.Claim(escrow.offerer, escrow.claimer, escrowHash, escrow.claimHandler, witnessResult);
+    }
+
+    function claim(EscrowData calldata escrow, bytes calldata witness) external {
+        require(escrow.successActionCommitment==bytes32(0x0), "claim: has success action");
+        _claimWithoutPayout(escrow, witness);
+
+        //Pay out the funds to the claimer
+        _payOut(escrow.claimer, escrow.token, escrow.amount, escrow.isPayOut());
+    }
+
+    function claimWithSuccessAction(EscrowData calldata escrow, bytes calldata witness, ExecutionAction calldata successAction) external {
+        require(escrow.successActionCommitment==successAction.hash(), "claim: invalid success action");
+        bytes32 escrowHash = _claimWithoutPayout(escrow, witness);
+
+        //Execute through execution proxy instead of paying out
+        (bool success, bytes memory errorResult) = _execute(escrow.token, escrow.amount, successAction, escrow.claimer);
+        if(!success) emit Events.ExecutionError(escrowHash, errorResult);
     }
     
     function refund(EscrowData calldata escrow, bytes calldata witness) external {
@@ -122,6 +145,8 @@ contract EscrowManager is EscrowStorage, LpVault, ReputationTracker, EIP712Sigha
         if(escrow.securityDeposit != 0) {
             TransferUtils.transferOut(escrow.depositToken, escrow.offerer, escrow.securityDeposit);
         }
+
+        //Pay rest of the deposit back to the claimer
         if(escrow.claimerBounty > escrow.securityDeposit) {
             TransferUtils.transferOut(escrow.depositToken, escrow.claimer, escrow.claimerBounty - escrow.securityDeposit);
         }
@@ -152,8 +177,8 @@ contract EscrowManager is EscrowStorage, LpVault, ReputationTracker, EIP712Sigha
         }
 
         //Pay out the whole deposit
-        TransferUtils.transferOut(escrow.depositToken, escrow.claimer, escrow.getTotalDeposit());
-
+        uint256 totalDeposit = escrow.getTotalDeposit();
+        if(totalDeposit>0) TransferUtils.transferOut(escrow.depositToken, escrow.claimer, escrow.getTotalDeposit());
         
         //Refund funds
         _payOut(escrow.offerer, escrow.token, escrow.amount, escrow.isPayIn());

@@ -12,12 +12,12 @@ export function generateMainChain() {
 }
 
 export function generateMainChainWithDiffAdjustment() {
-    const genesis = mineBitcoinBlock(Buffer.alloc(32).toString("hex"), 1500000000, "1f7fffff", 1500000000);
+    const genesis = mineBitcoinBlock(Buffer.alloc(32).toString("hex"), 1500000000, "1f7fffff", 1500000000-(1900*600), undefined, 1900);
 
     return createBitcoinChain(
         [genesis],
         600,
-        2030
+        130
     );
 }
 
@@ -42,14 +42,14 @@ export function generateSuccessfulFork() {
 }
 
 export function generateSuccessfulForkWithMoreChainwork() {
-    const genesis = mineBitcoinBlock(Buffer.alloc(32).toString("hex"), 1500000000, "1f7fffff", 1500000000);
+    const genesis = mineBitcoinBlock(Buffer.alloc(32).toString("hex"), 1500000000, "1f7fffff", 1500000000-(1900*600), undefined, 1900);
 
     //Create a canonical chain of 2201 blocks mined at usual speed
     //Total timespan = 600 * 2015 = 1209000
     const cannonicalChain = createBitcoinChain(
         [genesis],
         600,
-        2015 + 20
+        115 + 20
     );
 
     //Create fork at blockheight 1900, i.e. block 1901 is the first different block
@@ -57,12 +57,43 @@ export function generateSuccessfulForkWithMoreChainwork() {
     //Total timestpan = 600 * 1900 + 1 * 115 = 1140115
     //The difficulty should be ~5% higher here, so we can ovewrite a chain of 20 blocks, with 19 blocks
     const forkChain = createBitcoinChain(
-        cannonicalChain.slice(0, 1901),
+        [genesis],
         1,
-        116+19
+        115 + 19
     );
 
-    return {cannonicalChain: cannonicalChain.slice(1900), forkChain: forkChain.slice(1900)};
+    return {cannonicalChain: cannonicalChain, forkChain: forkChain};
+}
+
+export function generateSuccessfulForkWithMoreChainworkAndForkFromFutureHeight() {
+    const genesis = mineBitcoinBlock(Buffer.alloc(32).toString("hex"), 1500000000, "1f7fffff", 1500000000-(1900*600), undefined, 1900);
+
+    //Create a canonical chain of 2201 blocks mined at usual speed
+    //Total timespan = 600 * 2015 = 1209000
+    const cannonicalChain = createBitcoinChain(
+        [genesis],
+        600,
+        115 + 20
+    );
+
+    //Create fork at blockheight 1900, i.e. block 1901 is the first different block
+    //The fork is mined extremely fast compared to cannonical chain
+    //Total timestpan = 600 * 1900 + 1 * 115 = 1140115
+    //The difficulty should be ~5% higher here, so we can ovewrite a chain of 20 blocks, with 19 blocks
+    const forkChain1 = createBitcoinChain(
+        [genesis],
+        1,
+        115 + 19
+    );
+
+    //Now create a second fork, starting from the tip of the previous cannonical chain, which is now a future blockheight after the 1st reorg
+    const forkChain2 = createBitcoinChain(
+        [cannonicalChain[cannonicalChain.length-1]],
+        600,
+        5
+    );
+
+    return {cannonicalChain: cannonicalChain, forkChain1, forkChain2};
 }
 
 export function generateInvalidForkNotEnoughLength() {
@@ -86,14 +117,14 @@ export function generateInvalidForkNotEnoughLength() {
 }
 
 export function generateInvalidForkNotEnoughChainwork() {
-    const genesis = mineBitcoinBlock(Buffer.alloc(32).toString("hex"), 1500000000, "1f7fffff", 1500000000);
+    const genesis = mineBitcoinBlock(Buffer.alloc(32).toString("hex"), 1500000000, "1f7fffff", 1500000000-(600*1900), undefined, 1900);
 
     //Create a canonical chain of 2201 blocks mined at usual speed
     //Total timespan = 600 * 2015 = 1209000
     const cannonicalChain = createBitcoinChain(
         [genesis],
         600,
-        2015 + 8
+        115 + 8
     );
 
     //Create fork at blockheight 1900, i.e. block 1901 is the first different block
@@ -104,10 +135,10 @@ export function generateInvalidForkNotEnoughChainwork() {
     //So if we mine just 9 blocks on the fork, it should not be enough to overrun
     // the canonical chain with 8 blocks, even though fork is longer
     const forkChain = createBitcoinChain(
-        cannonicalChain.slice(0, 1901),
+        [genesis],
         2400,
-        116+9
+        115+9
     );
 
-    return {cannonicalChain: cannonicalChain.slice(1900), forkChain: forkChain.slice(1900)};
+    return {cannonicalChain: cannonicalChain, forkChain: forkChain};
 }

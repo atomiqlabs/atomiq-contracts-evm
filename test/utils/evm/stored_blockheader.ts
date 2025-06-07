@@ -1,5 +1,5 @@
 import { BitcoindBlockheader } from "../bitcoin_rpc_utils";
-
+import {ethers} from "hardhat";
 
 export function serializeStoredBlockheader(
     version: number,
@@ -10,7 +10,7 @@ export function serializeStoredBlockheader(
     nonce: number,
     chainwork: string | bigint,
     blockHeight: number,
-    lastDiffAdjustment: number,
+    lastDiffAdjustment?: number,
     prevBlockTimestamps?: number[]
 ): Buffer {
     const buffer = Buffer.alloc(160);
@@ -22,7 +22,7 @@ export function serializeStoredBlockheader(
     buffer.writeUInt32LE(nonce, 76);
     Buffer.from(chainwork.toString(16).padStart(64, "0"), "hex").copy(buffer, 80, 0, 32);
     buffer.writeUInt32BE(blockHeight, 112);
-    buffer.writeUInt32BE(lastDiffAdjustment, 116);
+    buffer.writeUInt32BE(lastDiffAdjustment ?? timestamp, 116);
     for(let i=0;i<10;i++) {
         const num = prevBlockTimestamps?.[i] ?? timestamp - (i+1)*600;
         buffer.writeUInt32BE(num, 120+(i*4));
@@ -31,7 +31,29 @@ export function serializeStoredBlockheader(
 }
 
 export function serializeBitcoindStoredBlockheader(
-    data: BitcoindBlockheader & {epochstart: number, previousBlockTimestamps?: number[]},
+    data: BitcoindBlockheader & {epochstart?: number, previousBlockTimestamps?: number[]},
 ): Buffer {
     return serializeStoredBlockheader(data.version, data.previousblockhash, data.merkleroot, data.time, data.bits, data.nonce, data.chainwork, data.height, data.epochstart, data.previousBlockTimestamps);
+}
+
+export function serializeBitcoindStoredBlockheaderToStruct(
+    data: BitcoindBlockheader & {epochstart?: number, previousBlockTimestamps?: number[]},
+): {data: [string, string, string, string, string]} {
+    const rawData = serializeStoredBlockheader(data.version, data.previousblockhash, data.merkleroot, data.time, data.bits, data.nonce, data.chainwork, data.height, data.epochstart, data.previousBlockTimestamps);
+
+    return {
+        data: [
+            "0x"+rawData.slice(0, 32).toString("hex"),
+            "0x"+rawData.slice(32, 64).toString("hex"),
+            "0x"+rawData.slice(64, 96).toString("hex"),
+            "0x"+rawData.slice(96, 128).toString("hex"),
+            "0x"+rawData.slice(128, 160).toString("hex"),
+        ]
+    }
+}
+
+export function hashBitcoindStoredBlockheader(
+    data: BitcoindBlockheader & {epochstart: number, previousBlockTimestamps?: number[]}
+) {
+    return ethers.keccak256(serializeBitcoindStoredBlockheader(data));
 }
