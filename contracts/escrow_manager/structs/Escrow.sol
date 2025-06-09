@@ -7,33 +7,33 @@ struct EscrowData {
     address offerer;
     //Account entitled to claim the funds from the escrow
     address claimer;
+
+    //Amount of tokens in the escrow
+    uint256 amount;
     //Token of the escrow
     address token;
-
-    //Address of the IRefundHandler deciding if this escrow is refundable
-    address refundHandler;
-    //Address of the IClaimHandler deciding if this escrow is claimable
-    address claimHandler;
 
     //Misc escrow data flags, currently defined: payIn, payOut, reputation.
     //It is recommended to randomize the other unused bits in the flags to act as a salt,
     // such that no 2 escrow data are the same, even if all the other data in them match. 
     uint256 flags;
 
+    //Address of the IClaimHandler deciding if this escrow is claimable
+    address claimHandler;
     //Data provided to the claim handler along with the witness to check claimability
     bytes32 claimData;
+
+    //Address of the IRefundHandler deciding if this escrow is refundable
+    address refundHandler;
     //Data provided to the refund handler along with the witness to check for refundability
     bytes32 refundData;
 
-    //Amount of tokens in the escrow
-    uint256 amount;
-
-    //Deposit token of the swap used for securityDeposit and claimerBounty
-    address depositToken;
     //Security deposit taken by the offerer if swap expires without claimer claiming (i.e. options premium)
     uint256 securityDeposit;
     //Claimer bounty that can be claimed by a 3rd party claimer if he were to claim this swap on behalf of claimer
     uint256 claimerBounty;
+    //Deposit token of the swap used for securityDeposit and claimerBounty
+    address depositToken;
 
     //ExecutionAction hash commitment to be executed on claim, left 0x0 if no execution should happen on claim
     bytes32 successActionCommitment;

@@ -43,7 +43,7 @@ contract StoredBlockHeaderWrapper {
     function header_blockhash(StoredBlockHeader memory storedHeader) view external returns (bytes32) {
         return StoredBlockHeaderImpl.header_blockhash(storedHeader);
     }
-    function hash(StoredBlockHeader memory storedHeader) view external returns (bytes32) {
+    function hash(StoredBlockHeader memory storedHeader) pure external returns (bytes32) {
         return StoredBlockHeaderImpl.hash(storedHeader);
     }
     function updateChain(StoredBlockHeader memory storedHeader, bytes calldata headers, uint256 offset, uint256 timestamp, bool clampTarget) view external returns (bytes32, StoredBlockHeader memory) {

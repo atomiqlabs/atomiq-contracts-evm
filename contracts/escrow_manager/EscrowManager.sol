@@ -52,14 +52,14 @@ contract EscrowManager is EscrowStorage, LpVault, ReputationTracker, EIP712Sigha
             // with many escrows
             if(escrow.isTrackingReputation()) {
                 require(
-                    SignatureChecker.isValidSignatureNow(escrow.claimer, _EIP712Sighash_getInitSighash(escrowHash, timeout), signature),
+                    SignatureChecker.isValidSignatureNow(escrow.claimer, _EIP712Sighash_getInitSighash(escrow, escrowHash, timeout), signature),
                     "init: invalid signature"
                 );
             }
         } else if(msg.sender==escrow.claimer) {
             //In this case we always require signature because we are taking funds from the offerer
             require(
-                SignatureChecker.isValidSignatureNow(escrow.offerer, _EIP712Sighash_getInitSighash(escrowHash, timeout), signature),
+                SignatureChecker.isValidSignatureNow(escrow.offerer, _EIP712Sighash_getInitSighash(escrow, escrowHash, timeout), signature),
                 "init: invalid signature"
             );
         } else {
