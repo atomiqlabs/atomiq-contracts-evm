@@ -45,8 +45,18 @@ library EscrowDataImpl {
     uint256 internal constant FLAG_REPUTATION = 0x04;
 
     //A keccak256 hash of the struct, used as a key for mapping storing the escrow state
-    function getStructHash(EscrowData calldata self) pure internal returns (bytes32 result) {
-        result = keccak256(abi.encode(self));
+    function hash(EscrowData calldata self) pure internal returns (bytes32 result) {
+        //The following assembly block is an equivalent to:
+        // result = keccak256(abi.encode(self));
+        assembly ("memory-safe") {
+            let ptr := mload(0x40)
+            //We don't need to allocate memory properly here (with mstore(0x40, newOffset)), 
+            // since we only use it as scratch-space for hashing, we can keep the free memory
+            // pointer as-is
+            // mstore(0x40, add(ptr, 416))
+            calldatacopy(ptr, self, 416)
+            result := keccak256(ptr, 416)
+        }
     }
 
     //Checks if the payIn flag is set

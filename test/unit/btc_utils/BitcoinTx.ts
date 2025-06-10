@@ -22,6 +22,8 @@ describe("BitcoinTx", function () {
             assert.strictEqual(await contract.getHash(parsedTx), "0x"+tx.hash);
             assert.strictEqual(await contract.getVersion(parsedTx), BigInt(tx.version));
             assert.strictEqual(await contract.getLocktime(parsedTx), BigInt(tx.locktime));
+            assert.strictEqual(await contract.inputsCount(parsedTx), BigInt(tx.ins.length));
+            assert.strictEqual(await contract.outputsCount(parsedTx), BigInt(tx.outs.length));
             for(let i=0;i<tx.ins.length;i++) {
                 const parsedUtxo = await contract.getInputUtxo(parsedTx, i);
                 assert.strictEqual(parsedUtxo[0], "0x"+tx.ins[i].utxo.hash);

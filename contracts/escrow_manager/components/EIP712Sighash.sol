@@ -43,7 +43,11 @@ contract EIP712Sighash is EIP712 {
         bytes32 structHash;
         assembly ("memory-safe") {
             let ptr := mload(0x40)
-            mstore(0x40, add(ptr, 576))
+
+            //We don't need to allocate memory properly here (with mstore(0x40, newOffset)), 
+            // since we only use it as scratch-space for hashing, we can keep the free memory
+            // pointer as-is
+            // mstore(0x40, add(ptr, 576))
 
             mstore(ptr, structTypeHash)
             mstore(add(ptr, 32), escrowHash)

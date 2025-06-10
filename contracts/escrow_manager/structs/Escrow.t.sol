@@ -2,10 +2,13 @@
 pragma solidity ^0.8.28;
 
 import "./Escrow.sol";
+// import "hardhat/console.sol";
 
 contract EscrowDataWrapper {
-    function getStructHash(EscrowData calldata self) pure external returns (bytes32 result) {
-        return EscrowDataImpl.getStructHash(self);
+    function hash(EscrowData calldata self) pure external returns (bytes32 result) {
+        // uint256 initGas = gasleft();
+        result = EscrowDataImpl.hash(self);
+        // console.log("Gas used: %s", initGas-gasleft());
     }
     function isPayIn(EscrowData calldata self) pure external returns (bool result) {
         return EscrowDataImpl.isPayIn(self);

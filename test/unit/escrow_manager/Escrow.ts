@@ -87,7 +87,7 @@ describe("Escrow", function () {
 
         for(let i=0;i<10;i++) {
             const escrowData = getRandomEscrowData();
-            assert.strictEqual(await contract.getStructHash(escrowData), getEscrowHash(escrowData));
+            assert.strictEqual(await contract.hash(escrowData), getEscrowHash(escrowData));
         }
     });
 

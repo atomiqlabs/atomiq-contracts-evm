@@ -16,6 +16,9 @@ contract BitcoinTxWrapper {
     function getLocktime(BitcoinTx memory self) pure external returns (uint256 result) {
         return BitcoinTxImpl.getLocktime(self);
     }
+    function inputsCount(BitcoinTx memory self) pure external returns (uint256) {
+        return BitcoinTxImpl.inputsCount(self);
+    }
     function getInputUtxo(BitcoinTx memory self, uint256 vin) pure external returns (bytes32, uint256) {
         return BitcoinTxImpl.getInputUtxo(self, vin);
     }
@@ -24,6 +27,9 @@ contract BitcoinTxWrapper {
     }
     function getInputScriptHash(BitcoinTx memory self, uint256 vin) pure external returns (bytes32) {
         return BitcoinTxImpl.getInputScriptHash(self, vin);
+    }
+    function outputsCount(BitcoinTx memory self) pure external returns (uint256) {
+        return BitcoinTxImpl.outputsCount(self);
     }
     function getOutputValue(BitcoinTx memory self, uint256 vout) pure external returns (uint256) {
         return BitcoinTxImpl.getOutputValue(self, vout);
