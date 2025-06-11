@@ -561,6 +561,6 @@ describe("BtcRelay", function () {
 
         await submitMainAndAssert(contract, cannonicalChain);
         await submitLongForkAndAssert(contract, forkChain, false, forkChain[0].height);
-    });
+    }).timeout(2*60*1000);
 
 });

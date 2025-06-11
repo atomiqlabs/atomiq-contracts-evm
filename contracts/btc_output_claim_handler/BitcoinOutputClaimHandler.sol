@@ -23,7 +23,7 @@ contract BitcoinOutputClaimHandler {
 
         //Commitment
         bytes32 expectedTxoHash; //32-bytes
-        uint256 confirmations; //4-bytes
+        uint32 confirmations; //4-bytes
         address btcRelayContract; //20-bytes
 
         bytes32 commitmentHash;
@@ -41,9 +41,9 @@ contract BitcoinOutputClaimHandler {
 
         //Witness
         StoredBlockHeader memory blockheader = StoredBlockHeaderImpl.fromCalldata(witness, 56); //160-bytes
-        uint256 vout; //4-bytes
+        uint32 vout; //4-bytes
         bytes memory rawTransaction;
-        uint256 position; //4-bytes
+        uint32 position; //4-bytes
         bytes32[] calldata proof;
         assembly ("memory-safe") {
             let calldataPtr := add(witness.offset, 188)
@@ -68,7 +68,7 @@ contract BitcoinOutputClaimHandler {
         //Parse transaction
         BitcoinTx memory transaction = BitcoinTxImpl.fromMemory(rawTransaction);
         //Check output is valid
-        uint256 outputValue = transaction.getOutputValue(vout);
+        uint64 outputValue = transaction.getOutputValue(vout);
         bytes32 scriptHash = transaction.getOutputScriptHash(vout);
 
         bytes32 txoHash;

@@ -6,7 +6,7 @@ library Nbits {
     //Calculates difficulty target from nBits
     //Description: https://btcinformation.org/en/developer-reference#target-nbits
     //This implementation panics on negative targets, accepts oveflown targets
-    function toTarget(uint256 reversedNbits) pure internal returns (uint256 target) {
+    function toTarget(uint32 reversedNbits) pure internal returns (uint256 target) {
         uint256 nSize;
         assembly {
             nSize := and(reversedNbits, 0xFF)
@@ -31,7 +31,7 @@ library Nbits {
 
     //Compresses difficulty target to nBits
     //Description: https://btcinformation.org/en/developer-reference#target-nbits
-    function toReversedNbits(uint256 target) pure internal returns (uint256 reversedNbits) {
+    function toReversedNbits(uint256 target) pure internal returns (uint32 reversedNbits) {
         assembly {
             switch target
             case 0 {

@@ -10,7 +10,7 @@ contract StoredBlockHeaderWrapper {
     function fromMemory(bytes memory value, uint256 offset) pure external returns (StoredBlockHeader memory storedHeader) {
         return StoredBlockHeaderImpl.fromMemory(value, offset);
     }
-    function header_version(StoredBlockHeader memory storedHeader) pure external returns (uint256) {
+    function header_version(StoredBlockHeader memory storedHeader) pure external returns (uint32) {
         return StoredBlockHeaderImpl.header_version(storedHeader);
     }
     function header_previousBlockhash(StoredBlockHeader memory storedHeader) pure external returns (bytes32) {
@@ -19,25 +19,25 @@ contract StoredBlockHeaderWrapper {
     function header_merkleRoot(StoredBlockHeader memory storedHeader) pure external returns (bytes32) {
         return StoredBlockHeaderImpl.header_merkleRoot(storedHeader);
     }
-    function header_timestamp(StoredBlockHeader memory storedHeader) pure external returns (uint256) {
+    function header_timestamp(StoredBlockHeader memory storedHeader) pure external returns (uint32) {
         return StoredBlockHeaderImpl.header_timestamp(storedHeader);
     }
-    function header_reversedNbits(StoredBlockHeader memory storedHeader) pure external returns (uint256) {
+    function header_reversedNbits(StoredBlockHeader memory storedHeader) pure external returns (uint32) {
         return StoredBlockHeaderImpl.header_reversedNbits(storedHeader);
     }
-    function header_nonce(StoredBlockHeader memory storedHeader) pure external returns (uint256) {
+    function header_nonce(StoredBlockHeader memory storedHeader) pure external returns (uint32) {
         return StoredBlockHeaderImpl.header_nonce(storedHeader);
     }
     function chainWork(StoredBlockHeader memory storedHeader) pure external returns (uint256) {
         return StoredBlockHeaderImpl.chainWork(storedHeader);
     }
-    function blockHeight(StoredBlockHeader memory storedHeader) pure external returns (uint256) {
+    function blockHeight(StoredBlockHeader memory storedHeader) pure external returns (uint32) {
         return StoredBlockHeaderImpl.blockHeight(storedHeader);
     }
-    function lastDiffAdjustment(StoredBlockHeader memory storedHeader) pure external returns (uint256) {
+    function lastDiffAdjustment(StoredBlockHeader memory storedHeader) pure external returns (uint32) {
         return StoredBlockHeaderImpl.lastDiffAdjustment(storedHeader);
     }
-    function previousBlockTimestamps(StoredBlockHeader memory storedHeader) pure external returns (uint256[10] memory) {
+    function previousBlockTimestamps(StoredBlockHeader memory storedHeader) pure external returns (uint32[10] memory) {
         return StoredBlockHeaderImpl.previousBlockTimestamps(storedHeader);
     }
     function header_blockhash(StoredBlockHeader memory storedHeader) view external returns (bytes32) {

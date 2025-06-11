@@ -5,10 +5,10 @@ import "./Nbits.sol";
 
 contract NbitsWrapper {
 
-    function toTarget(uint256 reversedNbits) pure public returns (uint256) {
+    function toTarget(uint32 reversedNbits) pure public returns (uint256) {
         return Nbits.toTarget(reversedNbits);
     }
-    function toReversedNbits(uint256 target) pure public returns (uint256) {
+    function toReversedNbits(uint256 target) pure public returns (uint32) {
         return Nbits.toReversedNbits(target);
     }
 

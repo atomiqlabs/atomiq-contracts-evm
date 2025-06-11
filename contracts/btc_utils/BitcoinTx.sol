@@ -216,7 +216,7 @@ library BitcoinTxImpl {
         }
     }
 
-    function getVersion(BitcoinTx memory self) pure internal returns (uint256 result) {
+    function getVersion(BitcoinTx memory self) pure internal returns (uint32 result) {
         bytes memory data = self.data;
         assembly ("memory-safe") {
             result := shr(224, mload(add(data, 32))) //Version is in the first 4-bytes of the transaction data
@@ -224,7 +224,7 @@ library BitcoinTxImpl {
         result = Endianness.reverseUint32(result);
     }
 
-    function getLocktime(BitcoinTx memory self) pure internal returns (uint256 result) {
+    function getLocktime(BitcoinTx memory self) pure internal returns (uint32 result) {
         bytes memory data = self.data;
         assembly ("memory-safe") {
             let dataLength := mload(data)
@@ -239,7 +239,7 @@ library BitcoinTxImpl {
     }
 
     //Get the UTXO of the input with the format: (txId, vout)
-    function getInputUtxo(BitcoinTx memory self, uint256 vin) pure internal returns (bytes32 txId, uint256 vout) {
+    function getInputUtxo(BitcoinTx memory self, uint256 vin) pure internal returns (bytes32 txId, uint32 vout) {
         bytes memory inputs = self.inputs;
         uint256 vinOffset = vin * 56;
         require(inputs.length > vinOffset, "btcTx: Input not found");
@@ -252,7 +252,7 @@ library BitcoinTxImpl {
     }
 
     //Returns the nSequence of the input
-    function getInputNSequence(BitcoinTx memory self, uint256 vin) pure internal returns (uint256 nSequence) {
+    function getInputNSequence(BitcoinTx memory self, uint256 vin) pure internal returns (uint32 nSequence) {
         bytes memory inputs = self.inputs;
         uint256 vinOffset = vin * 56;
         require(inputs.length > vinOffset, "btcTx: Input not found");
@@ -283,7 +283,7 @@ library BitcoinTxImpl {
     }
 
     //Get the value of the output
-    function getOutputValue(BitcoinTx memory self, uint256 vout) pure internal returns (uint256 value) {
+    function getOutputValue(BitcoinTx memory self, uint256 vout) pure internal returns (uint64 value) {
         bytes memory outputs = self.outputs;
         uint256 voutOffset = vout * 24;
         require(outputs.length > voutOffset, "btcTx: Output not found");
@@ -308,5 +308,35 @@ library BitcoinTxImpl {
             scriptHash := keccak256(add(add(data, 32), scriptOffset), scriptLength)
         }
     }
+
+    function getOutputScriptOffsets(BitcoinTx memory self, uint256 vout) pure internal returns (uint256 scriptOffset, uint256 scriptLength) {
+        bytes memory outputs = self.outputs;
+        uint256 voutOffset = vout * 24;
+        require(outputs.length > voutOffset, "btcTx: Output not found");
+        assembly ("memory-safe") {
+            let ptr := add(add(outputs, 24), voutOffset)
+            let packedData := mload(ptr)
+            scriptOffset := and(shr(64, packedData), 0xffffffffffffffff)
+            scriptLength := and(packedData, 0xffffffffffffffff)
+        }
+    }
+
+    function getOutputScript(BitcoinTx memory self, uint256 vout) pure internal returns (bytes memory script) {
+        bytes memory data = self.data;
+        bytes memory outputs = self.outputs;
+        uint256 voutOffset = vout * 24;
+        require(outputs.length > voutOffset, "btcTx: Output not found");
+        assembly ("memory-safe") {
+            let ptr := add(add(outputs, 24), voutOffset)
+            let packedData := mload(ptr)
+            let scriptOffset := and(shr(64, packedData), 0xffffffffffffffff)
+            let scriptLength := and(packedData, 0xffffffffffffffff)
+            script := mload(0x40)
+            mstore(0x40, add(add(script, 32), scriptLength))
+            mstore(script, scriptLength)
+            mcopy(add(script, 32), add(add(data, 32), scriptOffset), scriptLength)
+        }
+    }
+
 
 }

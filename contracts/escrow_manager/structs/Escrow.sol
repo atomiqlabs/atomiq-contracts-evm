@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.28;
 
+import "../../utils/MathUtils.sol";
+
 //Escrow data, this is hashed and used as a storage key for the escrow state mapping
 struct EscrowData {
     //Account funding the escrow
@@ -77,10 +79,6 @@ library EscrowDataImpl {
     //Returns total deposit, since only one of security_deposit (on claim) & claimer_bounty (on refund) can ever be paid
     // we use maximum of the two as the amount of funds in gas token that needs to be transfered to the escrow
     function getTotalDeposit(EscrowData calldata self) pure internal returns (uint256 amount) {
-        if(self.claimerBounty > self.securityDeposit) {
-            amount = self.claimerBounty;
-        } else {
-            amount = self.securityDeposit;
-        }
+        amount = MathUtils.maxUint256(self.claimerBounty, self.securityDeposit);
     }
 }

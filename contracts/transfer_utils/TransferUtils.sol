@@ -57,4 +57,8 @@ library TransferUtils {
         }
     }
 
+    function approve(address token, address spender, uint256 amount) internal {
+        IERC20(token).forceApprove(spender, amount);
+    }
+
 }

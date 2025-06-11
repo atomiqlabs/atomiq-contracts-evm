@@ -45,7 +45,7 @@ library StoredBlockHeaderImpl {
     }
 
     //Getters
-    function header_version(StoredBlockHeader memory self) pure internal returns (uint256 result) {
+    function header_version(StoredBlockHeader memory self) pure internal returns (uint32 result) {
         assembly ("memory-safe") {
             result := shr(224, mload(mload(self)))
         }
@@ -64,20 +64,20 @@ library StoredBlockHeaderImpl {
         }
     }
 
-    function header_timestamp(StoredBlockHeader memory self) pure internal returns (uint256 result) {
+    function header_timestamp(StoredBlockHeader memory self) pure internal returns (uint32 result) {
         assembly ("memory-safe") {
             result := shr(224, mload(add(mload(self), 68)))
         }
         result = Endianness.reverseUint32(result);
     }
 
-    function header_reversedNbits(StoredBlockHeader memory self) pure internal returns (uint256 result) {
+    function header_reversedNbits(StoredBlockHeader memory self) pure internal returns (uint32 result) {
         assembly ("memory-safe") {
             result := shr(224, mload(add(mload(self), 72)))
         }
     }
 
-    function header_nonce(StoredBlockHeader memory self) pure internal returns (uint256 result) {
+    function header_nonce(StoredBlockHeader memory self) pure internal returns (uint32 result) {
         assembly ("memory-safe") {
             result := shr(224, mload(add(mload(self), 76)))
         }
@@ -90,19 +90,19 @@ library StoredBlockHeaderImpl {
         }
     }
 
-    function blockHeight(StoredBlockHeader memory self) pure internal returns (uint256 result) {
+    function blockHeight(StoredBlockHeader memory self) pure internal returns (uint32 result) {
         assembly ("memory-safe") {
             result := shr(224, mload(add(mload(self), 112)))
         }
     }
 
-    function lastDiffAdjustment(StoredBlockHeader memory self) pure internal returns (uint256 result) {
+    function lastDiffAdjustment(StoredBlockHeader memory self) pure internal returns (uint32 result) {
         assembly ("memory-safe") {
             result := shr(224, mload(add(mload(self), 116)))
         }
     }
 
-    function previousBlockTimestamps(StoredBlockHeader memory self) pure internal returns (uint256[10] memory result) {
+    function previousBlockTimestamps(StoredBlockHeader memory self) pure internal returns (uint32[10] memory result) {
         assembly {
             let ptr := mload(self)
             let prevBlockTimestampsArray1 := mload(add(ptr, 120)) //offset(120) Stores first 8 last block timestamps
@@ -168,13 +168,13 @@ library StoredBlockHeaderImpl {
         // without previousBlockHash fields, which is instead taken automatically from the
         // current StoredBlockHeader, this allows us to save at least 512 gas on calldata
 
-        uint256 prevBlockTimestamp = header_timestamp(self);
-        uint256 currBlockTimestamp = headers.timestamp(offset);
+        uint32 prevBlockTimestamp = header_timestamp(self);
+        uint32 currBlockTimestamp = headers.timestamp(offset);
 
         //Check correct nbits
         uint256 currBlockHeight = blockHeight(self) + 1;
-        uint256 _lastDiffAdjustment = lastDiffAdjustment(self);
-        uint256 newNbits = headers.reversedNbits(offset);
+        uint32 _lastDiffAdjustment = lastDiffAdjustment(self);
+        uint32 newNbits = headers.reversedNbits(offset);
         uint256 newTarget;
         if(currBlockHeight % DIFFICULTY_ADJUSTMENT_INTERVAL == 0) {
             //Compute new nbits, bitcoin uses the timestamp of the last block in the epoch to re-target PoW difficulty

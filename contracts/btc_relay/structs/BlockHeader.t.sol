@@ -8,11 +8,11 @@ contract BlockHeaderWrapper {
         BlockHeaderUtils.verifyOutOfBounds(value, offset);
     }
 
-    function timestamp(bytes calldata value, uint256 offset) pure public returns (uint256) {
+    function timestamp(bytes calldata value, uint256 offset) pure public returns (uint32) {
         return BlockHeaderUtils.timestamp(value, offset);
     }
 
-    function reversedNbits(bytes calldata value, uint256 offset) pure public returns (uint256) {
+    function reversedNbits(bytes calldata value, uint256 offset) pure public returns (uint32) {
         return BlockHeaderUtils.reversedNbits(value, offset);
     }
 }

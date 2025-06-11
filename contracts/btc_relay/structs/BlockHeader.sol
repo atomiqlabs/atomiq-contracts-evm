@@ -20,14 +20,14 @@ library BlockHeaderUtils {
     }
 
     //Getters
-    function timestamp(bytes calldata self, uint256 offset) pure internal returns (uint256 result) {
+    function timestamp(bytes calldata self, uint256 offset) pure internal returns (uint32 result) {
         assembly ("memory-safe") {
             result := shr(224, calldataload(add(add(self.offset, offset), 36)))
         }
         result = Endianness.reverseUint32(result);
     }
 
-    function reversedNbits(bytes calldata self, uint256 offset) pure internal returns (uint256 result) {
+    function reversedNbits(bytes calldata self, uint256 offset) pure internal returns (uint32 result) {
         assembly ("memory-safe") {
             result := shr(224, calldataload(add(add(self.offset, offset), 40)))
         }

@@ -4,8 +4,11 @@ pragma solidity ^0.8.28;
 import "./ReputationState.sol";
 
 contract ReputationStateWrapper {
-    function update(ReputationState memory self, uint256 amount) pure external returns (ReputationState memory) {
-        ReputationStateImpl.update(self, amount);
-        return self;
+    ReputationState _self;
+
+    function update(ReputationState memory self, uint256 amount) external returns (ReputationState memory) {
+        _self = self;
+        ReputationStateImpl.update(_self, amount);
+        return _self;
     }
 }

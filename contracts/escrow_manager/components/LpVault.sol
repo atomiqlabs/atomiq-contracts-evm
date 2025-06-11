@@ -48,11 +48,11 @@ contract LpVault is ILpVault {
         _lpVault[dst][token] += amount;
     }
 
-    function _LpVault_transferIn(address token, address dst, uint256 amount) internal {
-        uint256 lpBalance = _lpVault[msg.sender][token];
+    function _LpVault_transferIn(address token, address src, uint256 amount) internal {
+        uint256 lpBalance = _lpVault[src][token];
         require(lpBalance >= amount, "_xferIn: not enough balance");
         unchecked {
-            _lpVault[dst][token] = lpBalance - amount;
+            _lpVault[src][token] = lpBalance - amount;
         } //We can use unchecked here, since there is an explicit check before this
     }
 

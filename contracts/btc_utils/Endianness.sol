@@ -2,7 +2,7 @@
 pragma solidity ^0.8.28;
 
 library Endianness {
-    function reverseUint32(uint256 input) internal pure returns (uint256) {
+    function reverseUint32(uint32 input) internal pure returns (uint32) {
         assembly {
             input := or(shr(8, and(input, 0xFF00FF00)), shl(8, and(input, 0x00FF00FF)))
             input := or(shr(16, and(input, 0xFFFF0000)), shl(16, and(input, 0x0000FFFF)))
@@ -10,7 +10,7 @@ library Endianness {
         return input;
     }
 
-    function reverseUint64(uint256 input) internal pure returns (uint256) {
+    function reverseUint64(uint64 input) internal pure returns (uint64) {
         assembly {
             input := or(shr(8, and(input, 0xFF00FF00FF00FF00)), shl(8, and(input, 0x00FF00FF00FF00FF)))
             input := or(shr(16, and(input, 0xFFFF0000FFFF0000)), shl(16, and(input, 0x0000FFFF0000FFFF)))

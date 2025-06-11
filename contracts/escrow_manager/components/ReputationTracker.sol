@@ -34,9 +34,7 @@ contract ReputationTracker is IReputationTracker {
 
     //Internal functions
     function _ReputationTracker_updateReputation(uint256 reputationType, address claimer, address token, address claimHandler, uint256 amount) internal {
-        ReputationState memory reputation = _reputation[claimer][token][claimHandler][reputationType];
-        reputation.update(amount);
-        _reputation[claimer][token][claimHandler][reputationType] = reputation;
+        _reputation[claimer][token][claimHandler][reputationType].update(amount);
     }
     
 }

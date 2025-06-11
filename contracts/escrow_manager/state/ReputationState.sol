@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.28;
 
+import "../../utils/MathUtils.sol";
+
 //On-chain saved reputation state
 struct ReputationState {
     //Total amount of tokens processed
@@ -11,15 +13,27 @@ struct ReputationState {
 
 library ReputationStateImpl {
 
-    //Updates a reputation with the specified token amount and increment count by 1
-    function update(ReputationState memory self, uint256 amount) pure internal {
-        //Saturating add
-        unchecked {
-            uint256 result = self.amount + amount;
-            if (result < amount || result > type(uint224).max) result = type(uint224).max;
-            self.amount = uint224(result);
+    using MathUtils for uint32;
+    using MathUtils for uint224;
+
+    function read(ReputationState storage self) view internal returns (uint224 amount, uint32 count) {
+        assembly {
+            let value := sload(self.slot)
+            amount := and(value, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+            count := shr(224, value)
         }
-        if(self.count < type(uint32).max) self.count++;
+    }
+
+    function write(ReputationState storage self, uint224 amount, uint32 count) internal {
+        assembly {
+            sstore(self.slot, or(amount, shl(224, count)))
+        }
+    }
+
+    //Updates a reputation with the specified token amount and increment count by 1
+    function update(ReputationState storage self, uint256 amount) internal {
+        (uint224 _amount, uint32 _count) = read(self);
+        write(self, _amount.saturatingAddUint224(amount), _count.saturatingAddOneUint32());
     }
 
 }

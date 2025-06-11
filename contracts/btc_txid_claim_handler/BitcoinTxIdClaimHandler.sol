@@ -18,7 +18,7 @@ contract BitcoinTxIdClaimHandler {
 
         //Commitment
         bytes32 reversedTxId; //32-bytes
-        uint256 confirmations; //4-bytes
+        uint32 confirmations; //4-bytes
         address btcRelayContract; //20-bytes
 
         bytes32 commitmentHash;
@@ -36,7 +36,7 @@ contract BitcoinTxIdClaimHandler {
 
         //Witness
         StoredBlockHeader memory blockheader = StoredBlockHeaderImpl.fromCalldata(witness, 56); //160-bytes
-        uint256 position; //4-bytes
+        uint32 position; //4-bytes
         bytes32[] calldata proof;
         assembly ("memory-safe") {
             position := and(calldataload(add(witness.offset, 188)), 0xffffffff)

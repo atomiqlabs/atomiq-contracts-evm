@@ -17,6 +17,7 @@ contract EscrowStorage is IEscrowStorageView {
     uint8 internal constant STATE_REFUNDED = 3;
 
     using EscrowDataImpl for EscrowData;
+    using EscrowStateImpl for EscrowState;
 
     mapping(bytes32 => EscrowState) _escrowState;
 
@@ -43,27 +44,24 @@ contract EscrowStorage is IEscrowStorageView {
     function _EscrowStorage_commit(EscrowData calldata escrow) internal returns (bytes32 escrowHash) {
         //Check if already committed
         escrowHash = escrow.hash();
-        require(_escrowState[escrowHash].state == STATE_NOT_COMMITTED, "_commit: Already committed");
+        EscrowState storage escrowState = _escrowState[escrowHash];
+        (,,uint8 state) = escrowState.read();
+        require(state == STATE_NOT_COMMITTED, "_commit: Already committed");
 
         //Commit
-        _escrowState[escrowHash] = EscrowState({
-            state: STATE_COMMITTED,
-            initBlockheight: uint64(block.number),
-            finishBlockheight: 0
-        });
+        escrowState.write(uint64(block.number), 0, STATE_COMMITTED);
     }
 
     //Finalizes the escrow state on-chain, fails if escrow is not initialized/committed
     function _EscrowStorage_finalize(EscrowData calldata escrow, bool success) internal returns (bytes32 escrowHash) {
         //Check committed
         escrowHash = escrow.hash();
-        EscrowState memory escrowState = _escrowState[escrowHash];
-        require(escrowState.state == STATE_COMMITTED, "_finalize: Not committed");
+        EscrowState storage escrowState = _escrowState[escrowHash];
+        (uint64 initBlockheight,,uint8 state) = escrowState.read();
+        require(state == STATE_COMMITTED, "_finalize: Not committed");
 
         //Set state to claimed
-        escrowState.state = success ? STATE_CLAIMED : STATE_REFUNDED;
-        escrowState.finishBlockheight = uint64(block.number);
-        _escrowState[escrowHash] = escrowState;
+        escrowState.write(initBlockheight, uint64(block.number), success ? STATE_CLAIMED : STATE_REFUNDED);
     }
 
 }

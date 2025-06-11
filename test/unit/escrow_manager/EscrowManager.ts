@@ -57,6 +57,49 @@ describe("EscrowManager", function () {
             verifyingContract: await contract.getAddress()
         };
 
+        function getInitSignature(signer: HardhatEthersSigner, escrow: EscrowDataType, timeout: bigint) {
+            const swapHash = getEscrowHash(escrow);
+            return signer.signTypedData(eip712domain, {
+                Initialize: [
+                    { name: "swapHash", type: "bytes32" },
+                    { name: "offerer", type: "address" },
+                    { name: "claimer", type: "address" },
+                    { name: "amount", type: "uint256" },
+                    { name: "token", type: "address" },
+                    { name: "payIn", type: "bool" },
+                    { name: "payOut", type: "bool" },
+                    { name: "trackingReputation", type: "bool" },
+                    { name: "claimHandler", type: "address" },
+                    { name: "claimData", type: "bytes32" },
+                    { name: "refundHandler", type: "address" },
+                    { name: "refundData", type: "bytes32" },
+                    { name: "securityDeposit", type: "uint256" },
+                    { name: "claimerBounty", type: "uint256" },
+                    { name: "depositToken", type: "address" },
+                    { name: "claimActionHash", type: "bytes32" },
+                    { name: "deadline", type: "uint256" }
+                ]
+            }, {
+                swapHash,
+                offerer: escrow.offerer,
+                claimer: escrow.claimer,
+                amount: escrow.amount,
+                token: escrow.token,
+                payIn: (escrow.flags & 0b010n) !== 0n,
+                payOut: (escrow.flags & 0b001n) !== 0n,
+                trackingReputation:  (escrow.flags & 0b100n) !== 0n,
+                claimHandler: escrow.claimHandler,
+                claimData: escrow.claimData,
+                refundHandler: escrow.refundHandler,
+                refundData: escrow.refundData,
+                securityDeposit: escrow.securityDeposit,
+                claimerBounty: escrow.claimerBounty,
+                depositToken: escrow.depositToken,
+                claimActionHash: escrow.successActionCommitment,
+                deadline: timeout
+            });
+        }
+
         function getBalance(tokenAddress: string, address: string): Promise<bigint> {
             if(tokenAddress==="0x0000000000000000000000000000000000000000") {
                 return account1.provider.getBalance(address);
@@ -77,19 +120,13 @@ describe("EscrowManager", function () {
         }
 
         async function initTx(signer: HardhatEthersSigner, otherSigner: HardhatEthersSigner, escrowData: EscrowDataType) {
-            const swapHash = getEscrowHash(escrowData);
             const timeout = BigInt(Math.floor((Date.now()/1000) + 60*60));
 
             const tx = await contract.initialize.populateTransaction(
                 escrowData, 
                 signer.address===escrowData.offerer && (escrowData.flags & 0b100n) === 0n ? 
                     "0x" : //No signature required
-                    await otherSigner.signTypedData(eip712domain, {
-                        Initialize: [
-                            { name: "swapHash", type: "bytes32" },
-                            { name: "timeout", type: "uint256" }
-                        ]
-                    }, {swapHash, timeout}), //Signature required from the other party
+                    await getInitSignature(otherSigner, escrowData, timeout), //Signature required from the other party
                 timeout,
                 "0x"
             );
@@ -383,7 +420,7 @@ describe("EscrowManager", function () {
 
         return {
             contract, account1, account2, account3, erc20Contract1, erc20Contract2, 
-            initTx, init, initAssert, initAndAssert, refundAndAssert, refundCoopAndAssert, refundCoop, refundCoopAssert, claimAndAssert, 
+            initTx, init, initAssert, initAndAssert, refundAndAssert, refundCoopAndAssert, refundCoop, refundCoopAssert, claimAndAssert, getInitSignature,
             eip712domain, claimHandler, refundHandler, dummyContract, erc1271Account
         };
     }
@@ -546,6 +583,65 @@ describe("EscrowManager", function () {
             await expect(contract.claim(escrowData, escrowData.claimData)).to.be.revertedWith("_finalize: Not committed"); //Claim second time
         });
 
+        it("Invalid claim (no execution specified, but success action execution attempted)", async function() {
+            const {contract, account1, account2, erc20Contract1, init, claimHandler, dummyContract, claimAndAssert} = await loadFixture(deploy);
+
+            const {to, data} = await dummyContract.call.populateTransaction("0x01020304"); //This call does an infinite loop
+            const successAction: ExecutionAction = {
+                gasLimit: 10_000n, //Limit the gas to 10,000, should run out of gas
+                calls: [{target: to, data, value: 0n}],
+                drainTokens: []
+            };
+
+            const escrowData = {
+                offerer: account1.address,
+                claimer: account2.address,
+                token: await erc20Contract1.getAddress(),
+                refundHandler: randomAddress(),
+                claimHandler: await claimHandler.getAddress(),
+                flags: 0b010n, //Pay-in
+                claimData: randomBytes32(),
+                refundData: randomBytes32(),
+                amount: 1_000n,
+                depositToken: "0x0000000000000000000000000000000000000000",
+                securityDeposit: 0n,
+                claimerBounty: 0n,
+                successActionCommitment: "0x0000000000000000000000000000000000000000000000000000000000000000" //No success action committed
+            };
+
+            await init(account1, account2, escrowData);
+            await expect(contract.claimWithSuccessAction(escrowData, escrowData.claimData, successAction)).to.be.revertedWith("claim: invalid success action");
+        });
+
+        it("Invalid claim (success action execution specified, but no success action execution attempted)", async function() {
+            const {contract, account1, account2, erc20Contract1, init, claimHandler, dummyContract, claimAndAssert} = await loadFixture(deploy);
+
+            const {to, data} = await dummyContract.call.populateTransaction("0x01020304"); //This call does an infinite loop
+            const successAction: ExecutionAction = {
+                gasLimit: 10_000n, //Limit the gas to 10,000, should run out of gas
+                calls: [{target: to, data, value: 0n}],
+                drainTokens: []
+            };
+
+            const escrowData = {
+                offerer: account1.address,
+                claimer: account2.address,
+                token: await erc20Contract1.getAddress(),
+                refundHandler: randomAddress(),
+                claimHandler: await claimHandler.getAddress(),
+                flags: 0b010n, //Pay-in
+                claimData: randomBytes32(),
+                refundData: randomBytes32(),
+                amount: 1_000n,
+                depositToken: "0x0000000000000000000000000000000000000000",
+                securityDeposit: 0n,
+                claimerBounty: 0n,
+                successActionCommitment: getExecutionActionHash(successAction) //Success action committed
+            };
+
+            await init(account1, account2, escrowData);
+            await expect(contract.claim(escrowData, escrowData.claimData)).to.be.revertedWith("claim: has success action");
+        });
     });
 
     describe("Refund cooperative", function() {
@@ -912,7 +1008,7 @@ describe("EscrowManager", function () {
         }
         
         it("Valid initialize (claimer is an erc1271 account)", async function() {
-            const {contract, account1, initAssert, account3, erc20Contract1, eip712domain, erc1271Account} = await loadFixture(deploy);
+            const {contract, account1, initAssert, account3, erc20Contract1, eip712domain, erc1271Account, getInitSignature} = await loadFixture(deploy);
 
             const timeout = BigInt(Math.floor((Date.now()/1000) + 60*60));
 
@@ -931,16 +1027,10 @@ describe("EscrowManager", function () {
                 claimerBounty: 0n,
                 successActionCommitment: randomBytes32()
             };
-            const swapHash = getEscrowHash(escrowData);
 
             const unsignedTx = await contract.initialize.populateTransaction(
                 escrowData,
-                await account3.signTypedData(eip712domain, {
-                    Initialize: [
-                        { name: "swapHash", type: "bytes32" },
-                        { name: "timeout", type: "uint256" }
-                    ]
-                }, {swapHash, timeout}), //erc1271Account account uses account3 as signer
+                await getInitSignature(account3, escrowData, timeout), //erc1271Account account uses account3 as signer
                 timeout,
                 "0x"
             );
@@ -1104,7 +1194,7 @@ describe("EscrowManager", function () {
         });
 
         it("Invalid initialize wrong signer", async function() {
-            const {contract, account1, account2, account3, erc20Contract1, eip712domain} = await loadFixture(deploy);
+            const {contract, account1, account2, account3, erc20Contract1, eip712domain, getInitSignature} = await loadFixture(deploy);
 
             const timeout = BigInt(Math.floor((Date.now()/1000) + 60*60));
 
@@ -1123,23 +1213,17 @@ describe("EscrowManager", function () {
                 claimerBounty: 0n,
                 successActionCommitment: randomBytes32()
             };
-            const swapHash = getEscrowHash(escrowData);
 
             await expect(contract.initialize(
                 escrowData,
-                await account3.signTypedData(eip712domain, {
-                    Initialize: [
-                        { name: "swapHash", type: "bytes32" },
-                        { name: "timeout", type: "uint256" }
-                    ]
-                }, {swapHash, timeout}), //Sign with different signer
+                await getInitSignature(account3, escrowData, timeout), //Sign with different signer
                 timeout,
                 "0x"
             )).to.be.revertedWith("init: invalid signature");
         });
 
         it("Invalid initialize bad sign message", async function() {
-            const {contract, account1, account2, account3, erc20Contract1, eip712domain} = await loadFixture(deploy);
+            const {contract, account1, account2, erc20Contract1, getInitSignature} = await loadFixture(deploy);
 
             const timeout = BigInt(Math.floor((Date.now()/1000) + 60*60));
 
@@ -1161,12 +1245,7 @@ describe("EscrowManager", function () {
 
             await expect(contract.initialize(
                 escrowData,
-                await account2.signTypedData(eip712domain, {
-                    Initialize: [
-                        { name: "swapHash", type: "bytes32" },
-                        { name: "timeout", type: "uint256" }
-                    ]
-                }, {swapHash: randomBytes32(), timeout: randomUnsignedBigInt(32)}), //Sign different data
+                await getInitSignature(account2, getRandomEscrowData(), randomUnsignedBigInt(32)), //Sign different data
                 timeout,
                 "0x"
             )).to.be.revertedWith("init: invalid signature");
@@ -1231,7 +1310,7 @@ describe("EscrowManager", function () {
         });
 
         it("Invalid initialize sign different timeout", async function() {
-            const {contract, account1, account2, account3, erc20Contract1, eip712domain} = await loadFixture(deploy);
+            const {contract, account1, account2, erc20Contract1, getInitSignature} = await loadFixture(deploy);
 
             const timeout = BigInt(Math.floor((Date.now()/1000) + 60*60));
 
@@ -1250,16 +1329,10 @@ describe("EscrowManager", function () {
                 claimerBounty: 0n,
                 successActionCommitment: randomBytes32()
             };
-            const swapHash = getEscrowHash(escrowData);
 
             await expect(contract.initialize(
                 escrowData,
-                await account2.signTypedData(eip712domain, {
-                    Initialize: [
-                        { name: "swapHash", type: "bytes32" },
-                        { name: "timeout", type: "uint256" }
-                    ]
-                }, {swapHash, timeout: 0n}), //Sign different timeout
+                await getInitSignature(account2, escrowData, 0n), //Sign different timeout
                 timeout,
                 "0x"
             )).to.be.revertedWith("init: invalid signature");
