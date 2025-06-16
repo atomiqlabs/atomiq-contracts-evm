@@ -11,6 +11,7 @@ struct SpvVaultParameters {
     
     uint256 confirmations;
 }
+uint256 constant SpvVaultParametersByteLength = 192;
 
 library SpvVaultParametersImpl {
     
@@ -22,9 +23,9 @@ library SpvVaultParametersImpl {
             //We don't need to allocate memory properly here (with mstore(0x40, newOffset)), 
             // since we only use it as scratch-space for hashing, we can keep the free memory
             // pointer as-is
-            // mstore(0x40, add(ptr, 192))
-            calldatacopy(ptr, self, 192)
-            paramsHash := keccak256(ptr, 192)
+            // mstore(0x40, add(ptr, SpvVaultParametersByteLength))
+            calldatacopy(ptr, self, SpvVaultParametersByteLength)
+            paramsHash := keccak256(ptr, SpvVaultParametersByteLength)
         }
     }
 
@@ -35,13 +36,12 @@ library SpvVaultParametersImpl {
     }
 
     function fromRawToken1(SpvVaultParameters calldata self, uint64 amount1Raw) pure internal returns (uint256 result) {
-        //Checked multiplication with manual handling of overflows
         unchecked {
             result = uint256(self.token1Multiplier) * uint256(amount1Raw); //Cannot overflow due to multiplication between uint192 & uint64
         }
     }
 
-    function fromRaw(SpvVaultParameters calldata self, uint32 amount0Raw, uint32 amount1Raw) pure internal returns (uint256 amount0, uint256 amount1) {
+    function fromRaw(SpvVaultParameters calldata self, uint64 amount0Raw, uint64 amount1Raw) pure internal returns (uint256 amount0, uint256 amount1) {
         amount0 = fromRawToken0(self, amount0Raw);
         amount1 = fromRawToken1(self, amount1Raw);
     }

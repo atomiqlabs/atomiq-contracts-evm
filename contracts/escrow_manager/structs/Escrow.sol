@@ -40,6 +40,7 @@ struct EscrowData {
     //ExecutionAction hash commitment to be executed on claim, left 0x0 if no execution should happen on claim
     bytes32 successActionCommitment;
 }
+uint256 constant EscrowDataByteLength = 416;
 
 library EscrowDataImpl {
     uint256 internal constant FLAG_PAY_OUT = 0x01;
@@ -55,9 +56,9 @@ library EscrowDataImpl {
             //We don't need to allocate memory properly here (with mstore(0x40, newOffset)), 
             // since we only use it as scratch-space for hashing, we can keep the free memory
             // pointer as-is
-            // mstore(0x40, add(ptr, 416))
-            calldatacopy(ptr, self, 416)
-            result := keccak256(ptr, 416)
+            // mstore(0x40, add(ptr, EscrowDataByteLength))
+            calldatacopy(ptr, self, EscrowDataByteLength)
+            result := keccak256(ptr, EscrowDataByteLength)
         }
     }
 

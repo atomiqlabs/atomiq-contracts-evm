@@ -55,36 +55,26 @@ contract SpvVaultManager {
     mapping(address => mapping(uint96 => mapping(bytes32 => address))) liquidityFronts;
 
     function open(uint96 vaultId, SpvVaultParameters calldata vaultParams, bytes32 utxoTxHash, uint32 utxoVout) external {
-        require(utxoTxHash != bytes32(0x00), "open: utxo is zero");
+        SpvVaultState storage vault = vaults[msg.sender][vaultId];
 
         //Check vault is not opened
-        require(vaults[msg.sender][vaultId].utxoTxHash == bytes32(0x00), "open: already opened");
+        require(!vault.isOpened(), "open: already opened");
 
         //Initialize new vault
-        vaults[msg.sender][vaultId].spvVaultParametersCommitment = vaultParams.hash();
-        vaults[msg.sender][vaultId].utxoTxHash = utxoTxHash;
-        vaults[msg.sender][vaultId].utxoVout = utxoVout;
-        vaults[msg.sender][vaultId].openBlockheight = uint32(block.number);
-        vaults[msg.sender][vaultId].withdrawCount = 0;
-        vaults[msg.sender][vaultId].depositCount = 0;
-        vaults[msg.sender][vaultId].token0Amount = 0;
-        vaults[msg.sender][vaultId].token1Amount = 0;
+        vault.open(vaultParams, utxoTxHash, utxoVout);
 
         //Emit event
         emit Events.Opened(msg.sender, vaultId, utxoTxHash, utxoVout, vaultParams);
     }
 
     function deposit(address owner, uint96 vaultId, SpvVaultParameters calldata vaultParams, uint64 rawToken0, uint64 rawToken1) external payable {
-        //Check vault is opened
-        require(vaults[owner][vaultId].utxoTxHash != bytes32(0x00), "deposit: vault closed");
-
-        //Check valid params supplied
-        require(vaults[owner][vaultId].spvVaultParametersCommitment == vaultParams.hash(), "deposit: invalid params");
+        SpvVaultState storage vault = vaults[owner][vaultId];
+        //Check vault is opened & valid params supplied
+        vault.checkOpenedAndParams(vaultParams);
 
         //Update the state with newly deposited tokens
-        (bool success, uint256 amount0, uint256 amount1) = vaultParams.fromRaw(rawToken0, rawToken1);
-        require(success, "deposit: amounts overflow");
-        uint256 depositCount = vaults[owner][vaultId].deposit(rawToken0, rawToken1);
+        (uint256 amount0, uint256 amount1) = vaultParams.fromRaw(rawToken0, rawToken1);
+        uint32 depositCount = vault.deposit(rawToken0, rawToken1);
 
         //Transfer tokens in
         _transferIn(vaultParams.token0, amount0, vaultParams.token1, amount1);
@@ -95,15 +85,13 @@ contract SpvVaultManager {
     
     //Fronts the liquidity for a specific bitcoin transaction
     function front(address owner, uint96 vaultId, SpvVaultParameters calldata vaultParams, uint32 withdrawalSequence, bytes32 btcTxHash, BitcoinVaultTransactionData memory data) external payable {
-        //Check vault is opened
-        require(vaults[owner][vaultId].utxoTxHash != bytes32(0x00), "front: vault closed");
-
-        //Check valid params supplied
-        require(vaults[owner][vaultId].spvVaultParametersCommitment == vaultParams.hash(), "front: invalid params");
+        SpvVaultState storage vault = vaults[owner][vaultId];
+        //Check vault is opened & valid params supplied
+        vault.checkOpenedAndParams(vaultParams);
         
         //This is to make sure that the caller doesn't front an already processed
         // withdraw, this would essentially make him loose funds
-        require(vaults[owner][vaultId].withdrawCount <= withdrawalSequence, "front: already processed");
+        require(vault.withdrawCount <= withdrawalSequence, "front: already processed");
 
         bytes32 frontingId = data.hash(btcTxHash);
         
@@ -113,12 +101,12 @@ contract SpvVaultManager {
         //Mark as fronted
         liquidityFronts[owner][vaultId][frontingId] = msg.sender;
 
-        uint256 rawAmount0 = data.amount[0] + data.executionHandlerFeeAmount0;
-        uint256 rawAmount1 = data.amount[1];
+        (bool rawAmount0Success, uint64 rawAmount0) = MathUtils.castToUint64(data.amount0 + data.executionHandlerFeeAmount0);
+        require(rawAmount0Success, "front: amount0 overflow");
+        uint64 rawAmount1 = data.amount1;
 
         //Transfer funds from caller to contract
-        (bool success, uint256 amount0, uint256 amount1) = vaultParams.fromRaw(rawAmount0, rawAmount1);
-        require(success, "front: amounts overflow");
+        (uint256 amount0, uint256 amount1) = vaultParams.fromRaw(rawAmount0, rawAmount1);
         _transferIn(vaultParams.token0, amount0, vaultParams.token1, amount1);
 
         //Transfer funds
@@ -129,21 +117,18 @@ contract SpvVaultManager {
             //Amount1 of token1 goes directly to the recipient
             if(amount1 > 0) TransferUtils.transferOut(vaultParams.token1, data.recipient, amount1);
             //Rest is transfered to execution contract
-            require(_toExecutionContract(vaultParams, data, btcTxHash), "front: exec deposit fail");
+            _toExecutionContract(vaultParams, data, btcTxHash);
         }
 
         //Emit event
-        emit Events.Fronted(Utils.packAddressAndVaultId(owner, vaultId), data.recipient, btcTxHash, data.executionHash, data.amount[0], data.amount[1]);
+        emit Events.Fronted(Utils.packAddressAndVaultId(owner, vaultId), data.recipient, btcTxHash, data.executionHash, data.amount0, data.amount1);
     }
     
     //Claim funds from the vault, given a proper bitcoin transaction as verified through the relay contract
     function claim(address owner, uint96 vaultId, SpvVaultParameters calldata vaultParams, bytes memory transaction, StoredBlockHeader memory blockheader, bytes32[] calldata merkleProof, uint256 position) external {
-        //Check vault is opened
-        bytes32 vaultUtxoTxHash = vaults[owner][vaultId].utxoTxHash;
-        require(vaultUtxoTxHash != bytes32(0x00), "claim: vault closed");
-
-        //Check valid params supplied
-        require(vaults[owner][vaultId].spvVaultParametersCommitment == vaultParams.hash(), "claim: invalid params");
+        SpvVaultState storage vault = vaults[owner][vaultId];
+        //Check vault is opened & valid params supplied
+        vault.checkOpenedAndParams(vaultParams);
 
         //Bitcoin transaction parsing and checks
         //Parse transaction
@@ -151,6 +136,7 @@ contract SpvVaultManager {
 
         //Make sure the transaction properly spends last vault UTXO
         (bytes32 utxoTxHash, uint32 utxoVout) = btcTx.getInputUtxo(0);
+        require(utxoTxHash == vault.utxoTxHash && utxoVout == vault.utxoVout, "claim: incorrect in_0 utxo");
 
         //Verify blockheader against the light client
         uint256 confirmations = IBtcRelayView(vaultParams.btcRelayContract).verifyBlockheaderHash(blockheader.blockHeight(), blockheader.hash());
@@ -169,14 +155,91 @@ contract SpvVaultManager {
 
         //Make sure we send the funds to owner in the case when there is some issue with the transaction parsing or withdrawal,
         // such that funds don't get frozen
-        //NOTE: Also verifies that full amounts are in bounds of u256 integer, such that we can use
-        // .unwrap() on all .from_raw() calculations
-        (bool success, BitcoinVaultTransactionData memory txData, string memory err) = BitcoinVaultTransactionDataImpl.fromTx(btcTx);
-        if(!success) {
-            _close(owner, vaultId, vaultParams, btcTxHash, err);
+        (bool successParse, BitcoinVaultTransactionData memory txData, string memory errParse) = BitcoinVaultTransactionDataImpl.fromTx(btcTx);
+        if(!successParse) {
+            _close(owner, vaultId, vaultParams, btcTxHash, errParse);
             return;
         }
 
+        //This also makes sure that the sum of all the amounts + fees, is in the bounds of 64-bit integer, hence we can
+        // use unsafe arithmetics when working with the amount & fees from now on
+        (bool successAmounts, uint64 amount0Raw, uint64 amount1Raw) = txData.getFullAmounts();
+        if(!successAmounts) {
+            _close(owner, vaultId, vaultParams, btcTxHash, "claim: full amounts");
+            return;
+        }
+
+        (bool successWithdraw, uint32 withdrawCount, string memory errWithdraw) = vault.withdraw(btcTxHash, 0, amount0Raw, amount1Raw);
+        if(!successWithdraw) {
+            _close(owner, vaultId, vaultParams, btcTxHash, errWithdraw);
+            return;
+        }
+
+        //Transfer funds to caller
+        (uint256 callerFeeToken0, uint256 callerFeeToken1) = vaultParams.fromRaw(txData.callerFee0, txData.callerFee1);
+        _transferOut(msg.sender, vaultParams.token0, callerFeeToken0, vaultParams.token1, callerFeeToken1);
+
+        //Check if this was already fronted
+        address recipient = txData.recipient;
+        bytes32 frontingId = txData.hash(btcTxHash);
+        address frontingAddress = liquidityFronts[owner][vaultId][frontingId];
+        if(frontingAddress != address(0x0)) {
+            //Transfer funds to the account that fronted
+            unchecked { //Unchecked arithmetics is fine, because we are summing 64-bit values using 256-bit arithmetics
+                (,uint64 frontingAmount0Raw) = MathUtils.castToUint64(
+                    uint256(txData.amount0) + uint256(txData.frontingFee0) + uint256(txData.executionHandlerFeeAmount0)
+                ); //We can ignore the success flag, since all sums will surely be in the uint64 range, because of the prior txData.getFullAmounts() call
+                
+                (,uint64 frontingAmount1Raw) = MathUtils.castToUint64(
+                    uint256(txData.amount1) + uint256(txData.frontingFee1)
+                ); //We can ignore the success flag, since all sums will surely be in the uint64 range, because of the prior txData.getFullAmounts() call
+                
+                (uint256 frontingAmount0, uint256 frontingAmount1) = vaultParams.fromRaw(frontingAmount0Raw, frontingAmount1Raw);
+                
+                //Use non-reverting transfer function, since we also support paying out native currency (ETH), the transfer out can
+                // fail if the destination is a malicious contract that e.g. runs out of gas when called, or doesn't allow native
+                // currency deposits at all. We silently ignore this error if it happens.
+                _transferOutNoRevert(frontingAddress, vaultParams.token0, frontingAmount0, vaultParams.token1, frontingAmount1);
+            }
+        } else {
+            if(txData.executionHash == bytes32(0x0)) {
+                unchecked { //Unchecked arithmetics is fine, because we are summing 64-bit values using 256-bit arithmetics
+                    (,uint64 payoutAmount0Raw) = MathUtils.castToUint64(
+                        uint256(txData.amount0) + uint256(txData.frontingFee0) + uint256(txData.executionHandlerFeeAmount0)
+                    ); //We can ignore the success flag, since all sums will surely be in the uint64 range, because of the prior txData.getFullAmounts() call
+                    
+                    (,uint64 payoutAmount1Raw) = MathUtils.castToUint64(
+                        uint256(txData.amount1) + uint256(txData.frontingFee1)
+                    ); //We can ignore the success flag, since all sums will surely be in the uint64 range, because of the prior txData.getFullAmounts() call
+                    
+                    (uint256 payoutAmount0, uint256 payoutAmount1) = vaultParams.fromRaw(payoutAmount0Raw, payoutAmount1Raw);
+                    
+                    //Use non-reverting transfer function, since we also support paying out native currency (ETH), the transfer out can
+                    // fail if the destination is a malicious contract that e.g. runs out of gas when called, or doesn't allow native
+                    // currency deposits at all. We silently ignore this error if it happens.
+                    _transferOutNoRevert(recipient, vaultParams.token0, payoutAmount0, vaultParams.token1, payoutAmount1);
+                }
+            } else {
+                unchecked { //Unchecked arithmetics is fine, because we are summing 64-bit values using 256-bit arithmetics
+                    //Pay out the gas token & fronting fee (in both, token0 and token1) straight to recipient
+                    (,uint64 payoutAmount1Raw) = MathUtils.castToUint64(
+                        uint256(txData.amount1) + uint256(txData.frontingFee1)
+                    ); //We can ignore the success flag, since all sums will surely be in the uint64 range, because of the prior txData.getFullAmounts() call
+                    (uint256 payoutAmount0, uint256 payoutAmount1) = vaultParams.fromRaw(txData.frontingFee0, payoutAmount1Raw);
+                    
+                    //Use non-reverting transfer function, since we also support paying out native currency (ETH), the transfer out can
+                    // fail if the destination is a malicious contract that e.g. runs out of gas when called, or doesn't allow native
+                    // currency deposits at all. We silently ignore this error if it happens.
+                    _transferOutNoRevert(recipient, vaultParams.token0, payoutAmount0, vaultParams.token1, payoutAmount1);
+
+                    //Rest is transfered to execution contract
+                    _toExecutionContract(vaultParams, txData, btcTxHash);
+                }
+            }
+        }
+
+        //Emit event
+        emit Events.Claimed(Utils.packAddressAndVaultId(owner, vaultId), recipient, btcTxHash, txData.executionHash, frontingAddress, withdrawCount, amount0Raw, amount1Raw);
     }
 
     //Internal functions
@@ -184,8 +247,7 @@ contract SpvVaultManager {
         vaults[owner][vaultId].close();
 
         //Calculate amounts left in the vault
-        (bool success, uint256 amount0, uint256 amount1) = vaultParams.fromRaw(vaults[owner][vaultId].token0Amount, vaults[owner][vaultId].token1Amount);
-        require(success, "_close: amounts overflow");
+        (uint256 amount0, uint256 amount1) = vaultParams.fromRaw(vaults[owner][vaultId].token0Amount, vaults[owner][vaultId].token1Amount);
 
         //Payout funds back to owner
         _transferOut(owner, vaultParams.token0, amount0, vaultParams.token1, amount1);
@@ -212,11 +274,22 @@ contract SpvVaultManager {
         }
     }
 
-    function _toExecutionContract(SpvVaultParameters calldata vaultParams, BitcoinVaultTransactionData memory data, bytes32 btcTxHash) internal returns (bool success) {
-        (bool success0, uint256 amount0) = vaultParams.fromRawToken0(data.amount[0]);
-        (bool success1, uint256 executionHandlerFee) = vaultParams.fromRawToken0(data.executionHandlerFeeAmount0);
-        if(!(success0 && success1)) return false;
+    function _transferOutNoRevert(address recipient, address token0, uint256 amount0, address token1, uint256 amount1) internal returns (bool success) {
+        if(token0==token1) {
+            success = TransferUtils.transferOutNoRevert(token0, recipient, amount0 + amount1);
+        } else {
+            bool success0 = true;
+            if(amount0 > 0) success0 = TransferUtils.transferOutNoRevert(token0, recipient, amount0);
+            bool success1 = true;
+            if(amount1 > 0) success1 = TransferUtils.transferOutNoRevert(token1, recipient, amount1);
+            success = success0 && success1;
+        }
+    }
 
+    function _toExecutionContract(SpvVaultParameters calldata vaultParams, BitcoinVaultTransactionData memory data, bytes32 btcTxHash) internal {
+        uint256 amount0 = vaultParams.fromRawToken0(data.amount0);
+        uint256 executionHandlerFee = vaultParams.fromRawToken0(data.executionHandlerFeeAmount0);
+        
         Execution memory execution = Execution({
             token: vaultParams.token0,
             executionActionHash: data.executionHash,
@@ -230,8 +303,6 @@ contract SpvVaultManager {
             TransferUtils.approve(vaultParams.token0, address(executionContract), amount0 + executionHandlerFee);
             executionContract.create(data.recipient, btcTxHash, execution);
         }
-
-        success = true;
     }
 
 }

@@ -11,4 +11,9 @@ contract ReputationStateWrapper {
         ReputationStateImpl.update(_self, amount);
         return _self;
     }
+
+    function read() external view returns (ReputationState memory) {
+        return _self;
+    }
+
 }

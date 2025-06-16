@@ -2,16 +2,21 @@
 pragma solidity ^0.8.28;
 
 import "../../btc_utils/BitcoinTx.sol";
+import "../../utils/MathUtils.sol";
 
 struct BitcoinVaultTransactionData {
     address recipient;
-    uint64[2] amount;
-    uint64[2] callerFee;
-    uint64[2] frontingFee;
+    uint64 amount0;
+    uint64 amount1;
+    uint64 callerFee0;
+    uint64 callerFee1;
+    uint64 frontingFee0;
+    uint64 frontingFee1;
     uint64 executionHandlerFeeAmount0;
     bytes32 executionHash;
     uint256 executionExpiry;
 }
+uint256 constant BitcoinVaultTransactionDataByteLength = 320;
 
 library BitcoinVaultTransactionDataImpl {
 
@@ -46,11 +51,11 @@ library BitcoinVaultTransactionDataImpl {
         
         //Make sure output has correct length
         address recipient;
-        uint256 amount0;
-        uint256 amount1;
+        uint64 amount0;
+        uint64 amount1;
         bytes32 executionHash;
         assembly ("memory-safe") {
-            let start := add(add(btcTxData, 34), output1ScriptOffset)
+            let start := add(add(btcTxData, 34), output1ScriptOffset) //Already offset by 32 (length prefix) + 2 (2 bytes of OP_RETURN and OP_PUSH_x opcode)
             switch output1ScriptLength
             case 30 {
                 //OP_RETURN OP_PUSH_28 <20 byte recipient || 8 byte amount0>
@@ -84,28 +89,32 @@ library BitcoinVaultTransactionDataImpl {
 
         if(recipient == address(0x0)) return (false, data, "txData: output 1 invalid len");
 
-        uint256 callerFeeAmount0 = amount0 * callerFee_u20 / 100_000;
-        if(callerFeeAmount0 > type(uint64).max) return (false, data, "txData: caller fee 0");
-        uint256 frontingFeeAmount0 = amount0 * frontingFee_u20 / 100_000;
-        if(frontingFeeAmount0 > type(uint64).max) return (false, data, "txData: fronting fee 0");
-        uint256 executionHandlerFeeAmount0 = amount0 * executionHandlerFee_u20 / 100_000;
-        if(executionHandlerFeeAmount0 > type(uint64).max) return (false, data, "txData: execution fee 0");
+        //This is safe, since we only multiply 64-bit values with 20-bit values, therefore no overflow will ever happen with 256-bit numbers
+        unchecked {
+            (bool callerFeeAmount0Success, uint64 callerFeeAmount0) = MathUtils.castToUint64(uint256(amount0) * callerFee_u20 / 100_000);
+            if(!callerFeeAmount0Success) return (false, data, "txData: caller fee 0");
+            (bool frontingFeeAmount0Success, uint64 frontingFeeAmount0) = MathUtils.castToUint64(uint256(amount0) * frontingFee_u20 / 100_000);
+            if(!frontingFeeAmount0Success) return (false, data, "txData: fronting fee 0");
+            (bool executionHandlerFeeAmount0Success, uint64 executionHandlerFeeAmount0) = MathUtils.castToUint64(uint256(amount0) * executionHandlerFee_u20 / 100_000);
+            if(!executionHandlerFeeAmount0Success) return (false, data, "txData: execution fee 0");
 
-        uint256 callerFeeAmount1 = amount1 * callerFee_u20 / 100_000;
-        if(callerFeeAmount1 > type(uint64).max) return (false, data, "txData: caller fee 1");
-        uint256 frontingFeeAmount1 = amount1 * frontingFee_u20 / 100_000;
-        if(frontingFeeAmount1 > type(uint64).max) return (false, data, "txData: fronting fee 1");
+            (bool callerFeeAmount1Success, uint64 callerFeeAmount1) = MathUtils.castToUint64(uint256(amount1) * callerFee_u20 / 100_000);
+            if(!callerFeeAmount1Success) return (false, data, "txData: caller fee 1");
+            (bool frontingFeeAmount1Success, uint64 frontingFeeAmount1) = MathUtils.castToUint64(uint256(amount1) * frontingFee_u20 / 100_000);
+            if(!frontingFeeAmount1Success) return (false, data, "txData: fronting fee 1");
 
-        data.recipient = recipient;
-        data.amount[0] = amount0;
-        data.amount[1] = amount1;
-        data.callerFee[0] = callerFeeAmount0;
-        data.callerFee[1] = callerFeeAmount1;
-        data.frontingFee[0] = frontingFeeAmount0;
-        data.frontingFee[1] = frontingFeeAmount1;
-        data.executionHandlerFeeAmount0 = executionHandlerFeeAmount0;
-        data.executionHash = executionHash;
-        data.executionExpiry = executionExpiry;
+
+            data.recipient = recipient;
+            data.amount0 = amount0;
+            data.amount1 = amount1;
+            data.callerFee0 = callerFeeAmount0;
+            data.callerFee1 = callerFeeAmount1;
+            data.frontingFee0 = frontingFeeAmount0;
+            data.frontingFee1 = frontingFeeAmount1;
+            data.executionHandlerFeeAmount0 = executionHandlerFeeAmount0;
+            data.executionHash = executionHash;
+            data.executionExpiry = executionExpiry;
+        }
 
         success = true;
     }
@@ -113,21 +122,28 @@ library BitcoinVaultTransactionDataImpl {
     //Returns hash of this vault data, salted by the transaction id, used as fronting ID
     function hash(BitcoinVaultTransactionData memory self, bytes32 btcTxHash) pure internal returns (bytes32 vaultTransactionHash) {
         assembly ("memory-safe") {
-            let structHash := keccak256(self, 320)
+            let structHash := keccak256(self, BitcoinVaultTransactionDataByteLength)
             mstore(0x00, structHash)
             mstore(0x20, btcTxHash)
             vaultTransactionHash := keccak256(0x00, 64)
         }
     }
 
-    //Returns full token amounts to be withdrawn from vault, this implies that there is no overflow
-    // when adding all the fees together!
-    function getFullAmounts(BitcoinVaultTransactionData memory self) pure internal returns (bool success, uint256 amount0, uint256 amount1) {
-        amount0 = self.amount[0] + self.callerFee[0] + self.frontingFee[0] + self.executionHandlerFeeAmount0;
-        amount1 = self.amount[1] + self.callerFee[1] + self.frontingFee[1];
-        if(amount0 > type(uint64).max) return (false, 0, 0);
-        if(amount1 > type(uint64).max) return (false, 0, 0);
-        success = true;
+    //Returns full token amounts to be withdrawn from vault, if success=true is returned this implies that there is no overflow
+    // when adding all the amounts & fees together!
+    function getFullAmounts(BitcoinVaultTransactionData memory self) pure internal returns (bool success, uint64 amount0, uint64 amount1) {
+        //Checked arithmetics not required, we are summing up to 4 64-bit integers, there is no way how this can overflow with 256-bit numbers
+        unchecked {
+            bool amount0Success;
+            (amount0Success, amount0) = MathUtils.castToUint64(
+                uint256(self.amount0) + uint256(self.callerFee0) + uint256(self.frontingFee0) + uint256(self.executionHandlerFeeAmount0)
+            );
+            bool amount1Success;
+            (amount1Success, amount1) = MathUtils.castToUint64(
+                uint256(self.amount1) + uint256(self.callerFee1) + uint256(self.frontingFee1)
+            );
+            success = amount0Success && amount1Success;
+        }
     }
 
 }
