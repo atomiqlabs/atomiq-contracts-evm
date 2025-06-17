@@ -8,23 +8,24 @@ library BitcoinMerkleTree {
         assembly ("memory-safe") {
             //if the least significant bit of index is set, store the hash on the right side (offset 32)
             // if bit is unset, store the hash on the left side (offset 0)
-            mstore(mul(and(index, 0x01), 32), leaf)
-            let proofLength := mul(proof.length, 32)
+            mstore(shl(5, and(index, 0x01)), leaf) //mul(and(index, 0x01), 32) == shl(5, and(index, 0x01))
+            
+            let proofLength := shl(5, proof.length) //mul(proof.length, 32)
             let ptr := proof.offset
             let proofEnd := add(ptr, proofLength)
             for { } lt(ptr, proofEnd) { ptr := add(ptr, 32) } {
                 //if the least significant bit of index is set (1), store the hash on the left side (offset 0)
                 // if bit is unset (0), store the hash on the left side (offset 32)
-                mstore(mul(iszero(and(index, 0x01)), 32), calldataload(ptr))
+                mstore(shl(5, iszero(and(index, 0x01))), calldataload(ptr)) //mul(iszero(and(index, 0x01)), 32) == shl(5, iszero(and(index, 0x01)))
                 index := shr(1, index)
                 
                 //Invoke first sha256 hash on the memory region, destination is scratch space at 0x00
                 pop(staticcall(gas(), 0x02, 0x00, 64, 0x00, 32))
                 //Invoke second sha256 on the scratch space at 0x00, destination is determined by the
                 // least significant bit of index, set (1) = offset 32, unset (0) = offset 0
-                pop(staticcall(gas(), 0x02, 0x00, 32, mul(and(index, 0x01), 32), 32))
+                pop(staticcall(gas(), 0x02, 0x00, 32, shl(5, and(index, 0x01)), 32)) //mul(and(index, 0x01), 32) == shl(5, and(index, 0x01))
             }
-            merkleRoot := mload(mul(and(index, 0x01), 32))
+            merkleRoot := mload(shl(5, and(index, 0x01))) //mul(and(index, 0x01), 32) == shl(5, and(index, 0x01)) 
         }
     }
 

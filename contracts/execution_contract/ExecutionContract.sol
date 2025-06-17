@@ -30,15 +30,15 @@ contract ExecutionContract is Executor {
     using ExecutionActionImpl for ExecutionAction;
 
     //Stores hash commitments of the scheduled executions
-    mapping(address => mapping(bytes32 => bytes32)) executionCommitments;
+    mapping(address => mapping(bytes32 => bytes32)) _executionCommitments;
 
     function create(address owner, bytes32 salt, Execution calldata execution) external payable {
         //Make sure execution not yet initialized
-        require(executionCommitments[owner][salt]==bytes32(0x0), "create: Already initiated");
+        require(_executionCommitments[owner][salt]==bytes32(0x0), "create: Already initiated");
 
         //Commit execution
         bytes32 executionHash = execution.hash();
-        executionCommitments[owner][salt] = executionHash;
+        _executionCommitments[owner][salt] = executionHash;
 
         //Transfer token amount to the contract
         uint256 totalAmount = execution.amount + execution.executionFee;
@@ -51,13 +51,13 @@ contract ExecutionContract is Executor {
     function execute(address owner, bytes32 salt, Execution calldata execution, ExecutionAction calldata executionAction) external {
         //Check if already processed, or not scheduled
         bytes32 executionHash = execution.hash();
-        require(executionCommitments[owner][salt]==executionHash, "execute: Not scheduled");
+        require(_executionCommitments[owner][salt]==executionHash, "execute: Not scheduled");
 
         //Check if hash matches
         require(execution.executionActionHash == executionAction.hash(), "execute: Invalid executionAction");
         
         //Clear execution
-        delete executionCommitments[owner][salt];
+        delete _executionCommitments[owner][salt];
 
         //Transfer execution fee to caller
         TransferUtils.transferOut(execution.token, msg.sender, execution.executionFee);
@@ -74,10 +74,10 @@ contract ExecutionContract is Executor {
 
         //Check if already processed, or not scheduled
         bytes32 executionHash = execution.hash();
-        require(executionCommitments[owner][salt]==executionHash, "refundExp: Not scheduled");
+        require(_executionCommitments[owner][salt]==executionHash, "refundExp: Not scheduled");
 
         //Clear execution
-        delete executionCommitments[owner][salt];
+        delete _executionCommitments[owner][salt];
         
         //Transfer execution fee to caller
         TransferUtils.transferOut(execution.token, msg.sender, execution.executionFee);
@@ -93,10 +93,10 @@ contract ExecutionContract is Executor {
         //Owner needs to be caller in this case!
         //Check if already processed, or not scheduled
         bytes32 executionHash = execution.hash();
-        require(executionCommitments[msg.sender][salt]==executionHash, "refund: Not scheduled");
+        require(_executionCommitments[msg.sender][salt]==executionHash, "refund: Not scheduled");
 
         //Clear execution
-        delete executionCommitments[msg.sender][salt];
+        delete _executionCommitments[msg.sender][salt];
         
         //Transfer full amount & execution fee to caller/owner
         TransferUtils.transferOut(execution.token, msg.sender, execution.amount + execution.executionFee);
@@ -106,7 +106,7 @@ contract ExecutionContract is Executor {
     }
 
     function getExecutionCommitmentHash(address owner, bytes32 salt) external view returns (bytes32) {
-        return executionCommitments[owner][salt];
+        return _executionCommitments[owner][salt];
     }
 
 }

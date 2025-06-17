@@ -26,41 +26,38 @@ contract BtcRelay is IBtcRelay, IBtcRelayView {
     using ForkImpl for Fork;
 
     uint256 _chainWorkAndBlockheight; //Chainwork is stored in upper most 224-bits and blockheight is saved in the least significant 32-bits
-
     function _setChainWorkAndBlockHeight(uint256 chainWork, uint32 blockHeight) internal {
         _chainWorkAndBlockheight = (chainWork << 32) | blockHeight;
-    } 
-
+    }
     function _getChainWorkAndBlockheight() internal view returns (uint256 chainWork, uint32 blockHeight) {
-        assembly {
-            let chainWorkAndBlockheight := sload(_chainWorkAndBlockheight.slot)
-            blockHeight := and(chainWorkAndBlockheight, 0xffffffff)
-            chainWork := shr(32, chainWorkAndBlockheight)
-        }
+        uint256 chainWorkAndBlockheight = _chainWorkAndBlockheight;
+        blockHeight = uint32(chainWorkAndBlockheight & 0xffffffff);
+        chainWork = chainWorkAndBlockheight >> 32;
     }
-
     function _getChainWork() internal view returns (uint256 chainWork) {
-        assembly { chainWork := shr(32, sload(_chainWorkAndBlockheight.slot)) }
+        chainWork = _chainWorkAndBlockheight >> 32;
     }
-
     function _getBlockHeight() internal view returns (uint32 blockHeight) {
-        assembly { blockHeight := and(sload(_chainWorkAndBlockheight.slot), 0xffffffff) }
+        blockHeight = uint32(_chainWorkAndBlockheight & 0xffffffff);
     }
 
-    mapping(uint256 => bytes32) mainChain;
-    mapping(address => mapping(uint256 => Fork)) forks;
+    //Mapping of the blockHeight => main chain blockheader commitment
+    mapping(uint256 => bytes32) _mainChain;
+    //Mapping of the submitter address => fork id => Fork struct
+    mapping(address => mapping(uint256 => Fork)) _forks;
 
+    //Whether to clamp block target (enforce the maximum PoW block target of 0x00000000FFFF0000000000000000000000000000000000000000000000000000),
+    // only used during testing
     bool immutable _clampBlockTarget;
 
     //Initialize the btc relay with the provided stored_header
     constructor(StoredBlockHeader memory storedHeader, bool clampBlockTarget) {
         _clampBlockTarget = clampBlockTarget;
 
-        bytes32 commitHash = storedHeader.hash();
-
         //Save the initial stored header
+        bytes32 commitHash = storedHeader.hash();
         uint32 blockHeight = storedHeader.blockHeight();
-        mainChain[blockHeight] = commitHash;
+        _mainChain[blockHeight] = commitHash;
         _setChainWorkAndBlockHeight(storedHeader.chainWork(), blockHeight);
 
         //Emit event
@@ -75,7 +72,7 @@ contract BtcRelay is IBtcRelay, IBtcRelayView {
         require(height <= mainBlockheight, 'verify: future block');
 
         require(
-            mainChain[height] == commitmentHash,
+            _mainChain[height] == commitmentHash,
             'verify: block commitment'
         );
 
@@ -84,16 +81,16 @@ contract BtcRelay is IBtcRelay, IBtcRelayView {
 
     //Mutating functions
     function submitMainBlockheaders(bytes calldata data) external {
-        require(data.length >= 208, "submitMain: no headers");
+        require(data.length >= 160 + 48, "submitMain: no headers");
 
-        StoredBlockHeader memory storedHeader = StoredBlockHeaderImpl.fromCalldata(data, 0);
+        StoredBlockHeader memory storedHeader = StoredBlockHeaderImpl.fromCalldata(data, 0); //160-byte previous blockheader
         
         //Verify stored header is latest committed
         uint32 blockHeight = _getBlockHeight();
         require(blockHeight == storedHeader.blockHeight(), "submitMain: block height");
-        require(mainChain[blockHeight] == storedHeader.hash(), "submitMain: block commitment");
+        require(_mainChain[blockHeight] == storedHeader.hash(), "submitMain: block commitment");
 
-        //Proccess new block headers
+        //Proccess new block headers, start at offset 160 and read 48-byte blockheaders
         for(uint256 i = 160; i < data.length; i += 48) {
             //Process the blockheader
             bytes32 blockHash = storedHeader.updateChain(data, i, block.timestamp, _clampBlockTarget);
@@ -101,7 +98,7 @@ contract BtcRelay is IBtcRelay, IBtcRelayView {
 
             //Write header commitment
             bytes32 commitHash = storedHeader.hash();
-            mainChain[blockHeight] = commitHash;
+            _mainChain[blockHeight] = commitHash;
 
             //Emit event
             emit Events.StoreHeader(commitHash, blockHash);
@@ -113,7 +110,7 @@ contract BtcRelay is IBtcRelay, IBtcRelayView {
 
     
     function submitShortForkBlockheaders(bytes calldata data) external {
-        require(data.length >= 208, "submitMain: no headers");
+        require(data.length >= 160 + 48, "submitMain: no headers");
 
         StoredBlockHeader memory storedHeader = StoredBlockHeaderImpl.fromCalldata(data, 0);
 
@@ -121,7 +118,7 @@ contract BtcRelay is IBtcRelay, IBtcRelayView {
         (uint256 chainWork, uint32 tipBlockHeight) = _getChainWorkAndBlockheight();
         uint32 blockHeight = storedHeader.blockHeight();
         require(blockHeight <= tipBlockHeight, "shortFork: future block");
-        require(mainChain[blockHeight] == storedHeader.hash(), "shortFork: block commitment");
+        require(_mainChain[blockHeight] == storedHeader.hash(), "shortFork: block commitment");
 
         uint256 startHeight = uint256(blockHeight) + 1;
 
@@ -135,7 +132,7 @@ contract BtcRelay is IBtcRelay, IBtcRelayView {
 
             //Write header commitment
             commitHash = storedHeader.hash();
-            mainChain[blockHeight] = commitHash;
+            _mainChain[blockHeight] = commitHash;
 
             //Emit event - here we can already emit main chain submission events
             emit Events.StoreHeader(commitHash, blockHash);
@@ -153,9 +150,9 @@ contract BtcRelay is IBtcRelay, IBtcRelayView {
     }
 
     function submitForkBlockheaders(uint256 forkId, bytes calldata data) external {
-        require(data.length >= 208, "fork: no headers");
+        require(data.length >= 160 + 48, "fork: no headers");
         require(forkId != 0, "fork: forkId 0 reserved");
-        Fork storage fork = forks[msg.sender][forkId];
+        Fork storage fork = _forks[msg.sender][forkId];
 
         StoredBlockHeader memory storedHeader = StoredBlockHeaderImpl.fromCalldata(data, 0);
 
@@ -166,7 +163,7 @@ contract BtcRelay is IBtcRelay, IBtcRelayView {
             //Verify stored header is committed in the main chain
             uint256 storedHeaderBlockHeight = storedHeader.blockHeight();
             require(storedHeaderBlockHeight <= tipBlockHeight, "fork: future block");
-            require(mainChain[storedHeaderBlockHeight] == commitHash, "fork: block commitment");
+            require(_mainChain[storedHeaderBlockHeight] == commitHash, "fork: block commitment");
             forkStartBlockheight = storedHeaderBlockHeight + 1;
             //Save the block start height and also the commitment of the fork root block (latest
             // block that is still committed in the main chain)
@@ -206,13 +203,13 @@ contract BtcRelay is IBtcRelay, IBtcRelayView {
             uint256 blockHeight = forkStartBlockheight-1;
             
             //Make sure that the fork's root block is still committed
-            require(mainChain[blockHeight] == forkChain[blockHeight], "fork: reorg block commitment");
+            require(_mainChain[blockHeight] == forkChain[blockHeight], "fork: reorg block commitment");
             delete forkChain[blockHeight];
 
             blockHeight++;
 
             for(; blockHeight <= forkTipBlockHeight; blockHeight++) {
-                mainChain[blockHeight] = forkChain[blockHeight];
+                _mainChain[blockHeight] = forkChain[blockHeight];
                 delete forkChain[blockHeight];
             }
             fork.remove();
@@ -243,11 +240,11 @@ contract BtcRelay is IBtcRelay, IBtcRelayView {
     }
 
     function getCommitHash(uint256 height) external view returns (bytes32) {
-        return mainChain[height];
+        return _mainChain[height];
     }
 
     function getTipCommitHash() external view returns (bytes32) {
-        return mainChain[_getBlockHeight()];
+        return _mainChain[_getBlockHeight()];
     }
 
 }

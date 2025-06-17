@@ -31,9 +31,9 @@ describe("Difficulty", function () {
         for(let i=0;i<10;i++) {
             const epoch = randomBitcoinEpoch()
             const result = await generateComputeNewTargetTest(epoch);
-            const normalResult = await contract.computeNewTarget(result.timestampEnd, result.timestampStart, result.oldTarget);
-            assert.strictEqual(targetTonBits(normalResult[0]), result.newNbits);
-            const altResult = await contract.computeNewTargetAlt(result.timestampEnd, result.timestampStart, reverseUint32(result.oldNbits), true);
+            // const normalResult = await contract._computeNewTarget(result.timestampEnd, result.timestampStart, result.oldTarget);
+            // assert.strictEqual(targetTonBits(normalResult[0]), result.newNbits);
+            const altResult = await contract.computeNewTarget(result.timestampEnd, result.timestampStart, reverseUint32(result.oldNbits), true);
             assert.strictEqual(altResult[1], reverseUint32(result.newNbits));
             assert.strictEqual(altResult[0], nbitsToTarget(result.newNbits));
         }

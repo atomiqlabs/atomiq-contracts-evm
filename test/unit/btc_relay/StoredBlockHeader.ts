@@ -42,15 +42,16 @@ describe("StoredBlockHeader", function () {
             first: BitcoindBlockheader & {epochstart: number, previousBlockTimestamps?: number[]},
             second: BitcoindBlockheader & {epochstart: number, previousBlockTimestamps?: number[]},
             clampTarget: boolean,
-            assert: boolean = true,
+            _assert: boolean = true,
             timestamp?: number
         ) {
             const serialized = serializeBitcoindStoredBlockheader(first);
             const parsedStoredBlockHeader = {data: [...(await contract.fromCalldata(serialized, 0))[0]]} as any;
-            if(assert) await assertStoredBlockheader(parsedStoredBlockHeader, first);
+            if(_assert) await assertStoredBlockheader(parsedStoredBlockHeader, first);
 
             const result = await contract.updateChain(parsedStoredBlockHeader, serializeBitcoindBlockheader(second), 0, timestamp ?? 0xffffffff, clampTarget);
-            if(assert) await assertStoredBlockheader({data: [...(result[1])[0]]} as any, second);
+            if(_assert) await assertStoredBlockheader({data: [...(result[1])[0]]} as any, second);
+            if(_assert) assert.strictEqual(result[0], "0x"+Buffer.from(second.hash, "hex").reverse().toString("hex"));
         }
 
         return { contract, assertStoredBlockheader, assertUpdateChain };
@@ -62,34 +63,16 @@ describe("StoredBlockHeader", function () {
         await contract.fromCalldata(randomBytes(160), 0);
     });
 
-    it("Valid from memory", async function () {
-        const {contract} = await loadFixture(deploy);
-
-        await contract.fromMemory(randomBytes(160), 0);
-    });
-
     it("Valid from calldata with offset", async function () {
         const {contract} = await loadFixture(deploy);
 
         await contract.fromCalldata(randomBytes(256), 41);
     });
 
-    it("Valid from memory with offset", async function () {
-        const {contract} = await loadFixture(deploy);
-
-        await contract.fromMemory(randomBytes(256), 41);
-    });
-
     it("Invalid from calldata with offset", async function () {
         const {contract} = await loadFixture(deploy);
 
         await expect(contract.fromCalldata(randomBytes(160), 15)).to.be.revertedWith("StoredBlockHeader: out of bounds");
-    });
-
-    it("Invalid from memory with offset", async function () {
-        const {contract} = await loadFixture(deploy);
-
-        await expect(contract.fromMemory(randomBytes(160), 18)).to.be.revertedWith("StoredBlockHeader: out of bounds");
     });
 
     it("Valid read values", async function () {

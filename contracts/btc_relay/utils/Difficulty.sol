@@ -1,32 +1,25 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.28;
 
-import "hardhat/console.sol";
 import "./Nbits.sol";
+import "../Constants.sol";
 
 library Difficulty {
-    //Lowest possible mining difficulty - highest possible target
-    uint256 internal constant UNROUNDED_MAX_TARGET = 0x00000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
-    uint256 internal constant ROUNDED_MAX_TARGET = 0x00000000FFFF0000000000000000000000000000000000000000000000000000;
-    uint32 internal constant ROUNDED_MAX_TARGET_NBITS = 0xFFFF001D;
 
-    //Bitcoin epoch timespan
-    uint256 internal constant TARGET_TIMESPAN = 14 * 24 * 60 * 60; //2 weeks
-    uint256 internal constant TARGET_TIMESPAN_DIV_4 = TARGET_TIMESPAN / 4;
-    uint256 internal constant TARGET_TIMESPAN_MUL_4 = TARGET_TIMESPAN * 4;
-
-    function computeNewTarget(uint32 prevTimestamp, uint32 startTimestamp, uint256 prevTarget) pure internal returns (uint256 newTarget) {
-        uint256 timespan = uint256(prevTimestamp) - uint256(startTimestamp);
+    //Old version of the target computation, operates on targets and uses uint256 arithmetics
+    // function _computeNewTarget(uint32 prevTimestamp, uint32 startTimestamp, uint256 prevTarget) pure internal returns (uint256 newTarget) {
+    //     uint256 timespan = uint256(prevTimestamp) - uint256(startTimestamp);
         
-        //Difficulty increase/decrease multiples are clamped between 0.25 (-75%) and 4 (+300%)
-        if(timespan < TARGET_TIMESPAN_DIV_4) timespan = TARGET_TIMESPAN_DIV_4;
-        if(timespan > TARGET_TIMESPAN_MUL_4) timespan = TARGET_TIMESPAN_MUL_4;
+    //     //Difficulty increase/decrease multiples are clamped between 0.25 (-75%) and 4 (+300%)
+    //     if(timespan < TARGET_TIMESPAN_DIV_4) timespan = TARGET_TIMESPAN_DIV_4;
+    //     if(timespan > TARGET_TIMESPAN_MUL_4) timespan = TARGET_TIMESPAN_MUL_4;
 
-        newTarget = prevTarget * timespan / TARGET_TIMESPAN;
-        if(newTarget > UNROUNDED_MAX_TARGET) newTarget = UNROUNDED_MAX_TARGET;
-    }
+    //     newTarget = prevTarget * timespan / TARGET_TIMESPAN;
+    //     if(newTarget > UNROUNDED_MAX_TARGET) newTarget = UNROUNDED_MAX_TARGET;
+    // }
 
-    function computeNewTargetAlt(uint32 prevTimestamp, uint32 startTimestamp, uint32 prevReversedNbits, bool clampTarget) pure internal returns (uint256 newTarget, uint32 newReversedNbits) {
+    //New version of the target computation, works directly with nBits
+    function computeNewTarget(uint32 prevTimestamp, uint32 startTimestamp, uint32 prevReversedNbits, bool clampTarget) pure internal returns (uint256 newTarget, uint32 newReversedNbits) {
         uint256 timespan = uint256(prevTimestamp) - uint256(startTimestamp);
         //Difficulty increase/decrease multiples are clamped between 0.25 (-75%) and 4 (+300%)
         if(timespan < TARGET_TIMESPAN_DIV_4) timespan = TARGET_TIMESPAN_DIV_4;

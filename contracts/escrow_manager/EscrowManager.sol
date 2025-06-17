@@ -38,7 +38,7 @@ contract EscrowManager is EscrowStorage, LpVault, ReputationTracker, EIP712Sigha
 
     //_extraData parameter is used for data-availability/propagation of escrow-specific extraneous data on-chain
     // and is therefore unused in the function itself
-    function initialize(EscrowData calldata escrow, bytes calldata signature, uint256 timeout, bytes calldata _extraData) external payable {
+    function initialize(EscrowData calldata escrow, bytes calldata signature, uint256 timeout, bytes memory _extraData) external payable {
         //Check expiry
         require(block.timestamp < timeout, "init: Authorization expired");
 
@@ -52,14 +52,14 @@ contract EscrowManager is EscrowStorage, LpVault, ReputationTracker, EIP712Sigha
             // with many escrows
             if(escrow.isTrackingReputation()) {
                 require(
-                    SignatureChecker.isValidSignatureNow(escrow.claimer, _EIP712Sighash_getInitSighash(escrow, escrowHash, timeout), signature),
+                    SignatureChecker.isValidSignatureNow(escrow.claimer, _EIP712Sighash_getInitSighash(escrow, escrowHash, timeout, _extraData), signature),
                     "init: invalid signature"
                 );
             }
         } else if(msg.sender==escrow.claimer) {
             //In this case we always require signature because we are taking funds from the offerer
             require(
-                SignatureChecker.isValidSignatureNow(escrow.offerer, _EIP712Sighash_getInitSighash(escrow, escrowHash, timeout), signature),
+                SignatureChecker.isValidSignatureNow(escrow.offerer, _EIP712Sighash_getInitSighash(escrow, escrowHash, timeout, _extraData), signature),
                 "init: invalid signature"
             );
         } else {

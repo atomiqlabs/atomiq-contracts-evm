@@ -24,11 +24,12 @@ contract BitcoinTxIdClaimHandler {
         bytes32 commitmentHash;
         assembly ("memory-safe") {
             reversedTxId := calldataload(witness.offset)
-            let confirmationsAndBtcRelayContract := calldataload(add(witness.offset, 24))
-            confirmations := and(shr(160 ,confirmationsAndBtcRelayContract), 0xffffffff)
-            btcRelayContract := and(confirmationsAndBtcRelayContract, 0xffffffffffffffffffffffffffffffffffffffff)
+            //Load both confirmations and btcRelayContract address at offset 32
+            let confirmationsAndBtcRelayContract := calldataload(add(witness.offset, 32))
+            confirmations := shr(224 ,confirmationsAndBtcRelayContract) //Extract first 4-bytes
+            btcRelayContract := and(shr(64, confirmationsAndBtcRelayContract), 0xffffffffffffffffffffffffffffffffffffffff) //Next 20-bytes
 
-            calldatacopy(0, witness.offset, 56)
+            calldatacopy(0, witness.offset, 56) //Copy to scratch space (0-64)
             commitmentHash := keccak256(0, 56)
         }
         //Verify claim data commitment
@@ -39,9 +40,9 @@ contract BitcoinTxIdClaimHandler {
         uint32 position; //4-bytes
         bytes32[] calldata proof;
         assembly ("memory-safe") {
-            position := and(calldataload(add(witness.offset, 188)), 0xffffffff)
-            proof.offset := add(witness.offset, 252)
-            proof.length := calldataload(add(witness.offset, 220))    
+            position := shr(224, calldataload(add(witness.offset, 216))) //Read 4-byte position
+            proof.length := calldataload(add(witness.offset, 220)) //Read length prefix
+            proof.offset := add(witness.offset, 252) //Offset 220 + 32-byte length prefix
         }
 
         //Verify blockheader against the light client

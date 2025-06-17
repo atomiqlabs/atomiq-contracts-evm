@@ -8,7 +8,6 @@ struct SpvVaultState {
     //Storage slot 0
     bytes32 spvVaultParametersCommitment;
 
-    //Dynamic variables
     //Storage slot 1
     bytes32 utxoTxHash;
 

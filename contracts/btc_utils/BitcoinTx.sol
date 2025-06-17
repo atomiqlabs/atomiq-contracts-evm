@@ -59,22 +59,25 @@ library BitcoinTxImpl {
             function readCompact(offset) -> value, length {
                 let word := mload(offset)
                 let first := shr(248, word) //Extract first byte
-                switch first
-                case 0xFD {
-                    value := reverseUint16(and(shr(232, word), 0xffff))
-                    length := 3
-                }
-                case 0xFE {
-                    value := reverseUint32(and(shr(216, word), 0xffffffff))
-                    length := 5
-                }
-                case 0xFF {
-                    value := reverseUint64(and(shr(184, word), 0xffffffffffffffff))
-                    length := 9
-                }
-                default {
+                switch lt(first, 0xFD) //Optimize for 1-byte long compact value, as that is most common
+                case 1 {
                     value := first
                     length := 1
+                }
+                default {
+                    switch first
+                    case 0xFD {
+                        value := reverseUint16(and(shr(232, word), 0xffff))
+                        length := 3
+                    }
+                    case 0xFE {
+                        value := reverseUint32(and(shr(216, word), 0xffffffff))
+                        length := 5
+                    }
+                    case 0xFF {
+                        value := reverseUint64(and(shr(184, word), 0xffffffffffffffff))
+                        length := 9
+                    }
                 }
             }
 
@@ -288,8 +291,8 @@ library BitcoinTxImpl {
         uint256 voutOffset = vout * 24;
         require(outputs.length > voutOffset, "btcTx: Output not found");
         assembly ("memory-safe") {
-            let ptr := add(add(outputs, 8), voutOffset)
-            value := and(mload(ptr), 0xffffffffffffffff)
+            let ptr := add(add(outputs, 32), voutOffset)
+            value := shr(192, mload(ptr))
         }
         value = Endianness.reverseUint64(value);
     }
@@ -301,10 +304,10 @@ library BitcoinTxImpl {
         uint256 voutOffset = vout * 24;
         require(outputs.length > voutOffset, "btcTx: Output not found");
         assembly ("memory-safe") {
-            let ptr := add(add(outputs, 24), voutOffset)
+            let ptr := add(add(outputs, 40), voutOffset) //Offset 8 (32+8 in total), so we can directly read script offset and length
             let packedData := mload(ptr)
-            let scriptOffset := and(shr(64, packedData), 0xffffffffffffffff)
-            let scriptLength := and(packedData, 0xffffffffffffffff)
+            let scriptOffset := shr(192, packedData)
+            let scriptLength := and(shr(128, packedData), 0xffffffffffffffff)
             scriptHash := keccak256(add(add(data, 32), scriptOffset), scriptLength)
         }
     }
@@ -314,10 +317,10 @@ library BitcoinTxImpl {
         uint256 voutOffset = vout * 24;
         require(outputs.length > voutOffset, "btcTx: Output not found");
         assembly ("memory-safe") {
-            let ptr := add(add(outputs, 24), voutOffset)
+            let ptr := add(add(outputs, 40), voutOffset) //Offset 8 (32+8 in total), so we can directly read script offset and length
             let packedData := mload(ptr)
-            scriptOffset := and(shr(64, packedData), 0xffffffffffffffff)
-            scriptLength := and(packedData, 0xffffffffffffffff)
+            scriptOffset := shr(192, packedData)
+            scriptLength := and(shr(128, packedData), 0xffffffffffffffff)
         }
     }
 
@@ -327,10 +330,11 @@ library BitcoinTxImpl {
         uint256 voutOffset = vout * 24;
         require(outputs.length > voutOffset, "btcTx: Output not found");
         assembly ("memory-safe") {
-            let ptr := add(add(outputs, 24), voutOffset)
+            let ptr := add(add(outputs, 40), voutOffset) //Offset 8 (32+8 in total), so we can directly read script offset and length
             let packedData := mload(ptr)
-            let scriptOffset := and(shr(64, packedData), 0xffffffffffffffff)
-            let scriptLength := and(packedData, 0xffffffffffffffff)
+            let scriptOffset := shr(192, packedData)
+            let scriptLength := and(shr(128, packedData), 0xffffffffffffffff)
+            
             script := mload(0x40)
             mstore(0x40, add(add(script, 32), scriptLength))
             mstore(script, scriptLength)

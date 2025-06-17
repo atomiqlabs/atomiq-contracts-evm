@@ -6,22 +6,7 @@ import hre from "hardhat";
 import { randomAddress, randomBytes32 } from "../../utils/evm/utils";
 import { TestERC20 } from "../../../typechain-types";
 import { ExecutionAction, getExecutionActionHash } from "../../utils/evm/execution_action";
-
-export type Execution = {
-    token: string,
-    executionActionHash: string,
-    amount: bigint,
-    executionFee: bigint,
-    expiry: bigint
-}
-
-export function getExecutionHash(execution: Execution) {
-    const encoded = hre.ethers.AbiCoder.defaultAbiCoder().encode(
-        ["tuple(address token, bytes32 executionActionHash, uint256 amount, uint256 executionFee, uint256 expiry)"],
-        [execution]
-    );
-    return hre.ethers.keccak256(encoded);
-}
+import { Execution, getExecutionHash } from "../../utils/evm/execution";
 
 describe("ExecutionContract", function () {
     async function deploy() {

@@ -7,9 +7,6 @@ contract StoredBlockHeaderWrapper {
     function fromCalldata(bytes calldata value, uint256 offset) pure external returns (StoredBlockHeader memory storedHeader) {
         return StoredBlockHeaderImpl.fromCalldata(value, offset);
     }
-    function fromMemory(bytes memory value, uint256 offset) pure external returns (StoredBlockHeader memory storedHeader) {
-        return StoredBlockHeaderImpl.fromMemory(value, offset);
-    }
     function header_version(StoredBlockHeader memory storedHeader) pure external returns (uint32) {
         return StoredBlockHeaderImpl.header_version(storedHeader);
     }

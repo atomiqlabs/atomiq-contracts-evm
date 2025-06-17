@@ -13,16 +13,23 @@ struct EscrowState {
 
 library EscrowStateImpl {
 
+    //Optimized read function, that reads all the values at once
     function read(EscrowState storage self) view internal returns (uint64 initBlockheight, uint64 finishBlockheight, uint8 state) {
+        //The following assembly is equivalent to:
+        // initBlockheight = self.initBlockheight;
+        // finishBlockheight = self.finishBlockheight;
+        // state = self.state;
         assembly {
-            let value := sload(self.slot)
+            let value := sload(self.slot) //All the data is stored at slot 0
             initBlockheight := and(value, 0xffffffffffffffff)
             finishBlockheight := and(shr(64, value), 0xffffffffffffffff)
             state := byte(15, value)
         }
     }
 
+    //Optimized write function that writes all the values at once
     function write(EscrowState storage self, uint64 initBlockheight, uint64 finishBlockheight, uint8 state) internal {
+        //The following assembly is equivalent to:
         // self.initBlockheight = initBlockheight;
         // self.finishBlockheight = finishBlockheight;
         // self.state = state;

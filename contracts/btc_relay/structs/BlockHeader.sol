@@ -11,7 +11,7 @@ import "../../btc_utils/Endianness.sol";
  * - bytes32 merkleRoot
  * - uint32 reversedTimestamp
  * - uint32 nbits
- * - uint32 nonce 
+ * - uint32 nonce
  */
 library BlockHeaderUtils {
 

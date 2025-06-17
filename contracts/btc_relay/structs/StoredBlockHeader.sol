@@ -5,6 +5,7 @@ import "./BlockHeader.sol";
 import "../utils/Nbits.sol";
 import "../utils/Difficulty.sol";
 import "../../btc_utils/Endianness.sol";
+import "../Constants.sol";
 
 /**
  * Bitcoin stored blockheader defined as a fixed-length bytes32 array
@@ -20,22 +21,8 @@ struct StoredBlockHeader {
 }
 
 library StoredBlockHeaderImpl {
-    uint256 public constant DIFFICULTY_ADJUSTMENT_INTERVAL = 2016;
-
-    //Maximum positive difference between bitcoin block's timestamp and EVM chain's on-chain clock
-    //Nodes in bitcoin network generally reject any block with timestamp more than 2 hours in the future
-    //As we are dealing with another blockchain here,
-    // with the possibility of the EVM chain's on-chain clock being skewed, we chose double the value -> 4 hours
-    uint256 public constant MAX_FUTURE_BLOCKTIME = 4 * 60 * 60;
 
     using BlockHeaderUtils for bytes;
-    
-    function fromMemory(bytes memory data, uint256 offset) pure internal returns (StoredBlockHeader memory storedHeader) {
-        require(data.length >= 160+offset, "StoredBlockHeader: out of bounds");
-        assembly ("memory-safe") {
-            mcopy(mload(storedHeader), add(add(data, 32), offset), 160) //Store stored header data
-        }
-    }
 
     function fromCalldata(bytes calldata data, uint256 offset) pure internal returns (StoredBlockHeader memory storedHeader) {
         require(data.length >= 160+offset, "StoredBlockHeader: out of bounds");
@@ -103,7 +90,7 @@ library StoredBlockHeaderImpl {
     }
 
     function previousBlockTimestamps(StoredBlockHeader memory self) pure internal returns (uint32[10] memory result) {
-        assembly {
+        assembly ("memory-safe") {
             let ptr := mload(self)
             let prevBlockTimestampsArray1 := mload(add(ptr, 120)) //offset(120) Stores first 8 last block timestamps
             let prevBlockTimestampsArray2 := mload(add(ptr, 128)) //offset(120 + 8) Stores last 2 last block timestamps in least significant bits
@@ -163,7 +150,9 @@ library StoredBlockHeaderImpl {
         }
     }
 
-    function updateChain(StoredBlockHeader memory self, bytes calldata headers, uint256 offset, uint256 timestamp, bool clampTarget) internal view returns (bytes32 blockHash) {
+    function updateChain(
+        StoredBlockHeader memory self, bytes calldata headers, uint256 offset, uint256 timestamp, bool clampTarget
+    ) internal view returns (bytes32 blockHash) {
         //We don't check whether pevious header matches since submitted headers are submitted
         // without previousBlockHash fields, which is instead taken automatically from the
         // current StoredBlockHeader, this allows us to save at least 512 gas on calldata
@@ -180,7 +169,7 @@ library StoredBlockHeaderImpl {
             //Compute new nbits, bitcoin uses the timestamp of the last block in the epoch to re-target PoW difficulty
             // https://github.com/bitcoin/bitcoin/blob/78dae8caccd82cfbfd76557f1fb7d7557c7b5edb/src/pow.cpp#L49
             uint256 computedNbits;
-            (newTarget, computedNbits) = Difficulty.computeNewTargetAlt(
+            (newTarget, computedNbits) = Difficulty.computeNewTarget(
                 prevBlockTimestamp,
                 _lastDiffAdjustment,
                 header_reversedNbits(self),
@@ -206,7 +195,7 @@ library StoredBlockHeaderImpl {
         uint256 count = 0;
         uint256 prevBlockTimestampsArray1;
         uint256 prevBlockTimestampsArray2;
-        assembly {
+        assembly ("memory-safe") {
             let ptr := mload(self)
             prevBlockTimestampsArray1 := mload(add(ptr, 120)) //offset(120) Stores first 8 last block timestamps
             prevBlockTimestampsArray2 := mload(add(ptr, 128)) //offset(120 + 8) Stores last 2 last block timestamps in least significant bits
@@ -240,14 +229,15 @@ library StoredBlockHeaderImpl {
             //Blockheader is already written to memory with prior writeHeaderAndGetDblSha256Hash() call
             let ptr := mload(self)
 
+            //Write chainwork at offset 80..112
             mstore(add(ptr, 80), _chainWork)
             mstore(add(ptr, 112), 
                 or(
                     or(
-                        shl(224, currBlockHeight),
-                        shl(192, and(_lastDiffAdjustment, 0xffffffff))
+                        shl(224, currBlockHeight), //Current block height at offset 112..116
+                        shl(192, and(_lastDiffAdjustment, 0xffffffff)) //Last difficulty adjustment at offset 116..120
                     ),
-                    shr(64, prevBlockTimestampsArray1)
+                    shr(64, prevBlockTimestampsArray1) //First 6 values of previous block timestamps at offset 120..144
                 )
             )
             //Ensure we don't write outside the region of the stored blockheader byte array, so we

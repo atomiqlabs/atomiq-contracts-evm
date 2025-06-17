@@ -29,11 +29,12 @@ contract BitcoinOutputClaimHandler {
         bytes32 commitmentHash;
         assembly ("memory-safe") {
             expectedTxoHash := calldataload(witness.offset)
-            let confirmationsAndBtcRelayContract := calldataload(add(witness.offset, 24))
-            confirmations := and(shr(160 ,confirmationsAndBtcRelayContract), 0xffffffff)
-            btcRelayContract := and(confirmationsAndBtcRelayContract, 0xffffffffffffffffffffffffffffffffffffffff)
+            //Load both confirmations and btcRelayContract address at offset 32
+            let confirmationsAndBtcRelayContract := calldataload(add(witness.offset, 32))
+            confirmations := shr(224 ,confirmationsAndBtcRelayContract) //Extract first 4-bytes
+            btcRelayContract := and(shr(64, confirmationsAndBtcRelayContract), 0xffffffffffffffffffffffffffffffffffffffff) //Next 20-bytes
 
-            calldatacopy(0, witness.offset, 56)
+            calldatacopy(0, witness.offset, 56) //Copy to scratch space (0-64)
             commitmentHash := keccak256(0, 56)
         }
         //Verify claim data commitment
@@ -46,22 +47,24 @@ contract BitcoinOutputClaimHandler {
         uint32 position; //4-bytes
         bytes32[] calldata proof;
         assembly ("memory-safe") {
-            let calldataPtr := add(witness.offset, 188)
-            vout := and(calldataload(calldataPtr), 0xffffffff)
-            calldataPtr := add(calldataPtr, 32)
+            let calldataPtr := add(witness.offset, 216) //Offset of 56-bytes commitment + 160-bytes blockheader
+            //Read 4-byte vout
+            vout := shr(224, calldataload(calldataPtr))
+            calldataPtr := add(calldataPtr, 4)
 
             let transactionLength := calldataload(calldataPtr)
-            let totalCopyLength := add(transactionLength, 32)
-            rawTransaction := mload(0x40) //Free memory pointer
+            let totalCopyLength := add(transactionLength, 32) //Byte length + 32-bytes length prefix
+            //Allocate memory
+            rawTransaction := mload(0x40)
             mstore(0x40, add(rawTransaction, totalCopyLength))
-            calldatacopy(rawTransaction, calldataPtr, totalCopyLength)
-
+            calldatacopy(rawTransaction, calldataPtr, totalCopyLength) //Copy data with the length prefix
             calldataPtr := add(calldataPtr, totalCopyLength)
 
-            position := and(calldataload(sub(calldataPtr, 28)), 0xffffffff)
+            position := shr(224, calldataload(calldataPtr)) //4-byte position
             calldataPtr := add(calldataPtr, 4)
-            proof.length := calldataload(calldataPtr)
-            calldataPtr := add(calldataPtr, 32)
+
+            proof.length := calldataload(calldataPtr) //32-byte proof length
+            calldataPtr := add(calldataPtr, 32) //Offset the start to be after the proof length prefix
             proof.offset := calldataPtr
         }
 
@@ -72,10 +75,10 @@ contract BitcoinOutputClaimHandler {
         bytes32 scriptHash = transaction.getOutputScriptHash(vout);
 
         bytes32 txoHash;
-        assembly {
-            mstore(0x00, outputValue)
+        assembly ("memory-safe") {
+            mstore(0x00, outputValue) //The output value is just 8-bytes, so is stored in least significant bits
             mstore(0x20, scriptHash)
-            txoHash := keccak256(24, 40)
+            txoHash := keccak256(24, 40) //Therefore we use offset 24 here, to only take the last 8-bytes of the first value
         }
         require(expectedTxoHash==txoHash, "btcoutlock: Invalid output");
 

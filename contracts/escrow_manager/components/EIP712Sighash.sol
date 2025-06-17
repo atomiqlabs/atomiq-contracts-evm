@@ -10,14 +10,14 @@ contract EIP712Sighash is EIP712 {
     
     constructor() EIP712("atomiq.exchange", "1") {}
 
-    bytes32 private constant INITIALIZE_STRUCT_TYPE_HASH = keccak256(
-        "Initialize(bytes32 swapHash,address offerer,address claimer,uint256 amount,address token,bool payIn,bool payOut,bool trackingReputation,address claimHandler,bytes32 claimData,address refundHandler,bytes32 refundData,uint256 securityDeposit,uint256 claimerBounty,address depositToken,bytes32 claimActionHash,uint256 deadline)"
+    bytes32 constant INITIALIZE_STRUCT_TYPE_HASH = keccak256(
+        "Initialize(bytes32 swapHash,address offerer,address claimer,uint256 amount,address token,bool payIn,bool payOut,bool trackingReputation,address claimHandler,bytes32 claimData,address refundHandler,bytes32 refundData,uint256 securityDeposit,uint256 claimerBounty,address depositToken,bytes32 claimActionHash,uint256 deadline,bytes32 extraDataHash)"
     );
-    bytes32 private constant REFUND_STRUCT_TYPE_HASH = keccak256(
+    bytes32 constant REFUND_STRUCT_TYPE_HASH = keccak256(
         "Refund(bytes32 swapHash,uint256 timeout)"
     );
 
-    function _EIP712Sighash_getInitSighash(EscrowData calldata escrow, bytes32 escrowHash, uint256 timeout) view internal returns (bytes32 sighash) {
+    function _EIP712Sighash_getInitSighash(EscrowData calldata escrow, bytes32 escrowHash, uint256 timeout, bytes memory _extraData) view internal returns (bytes32 sighash) {
         // The following assembly is equivalent to:
         // bytes32 structHash = keccak256(abi.encode(
         //     INITIALIZE_STRUCT_TYPE_HASH,
@@ -37,7 +37,8 @@ contract EIP712Sighash is EIP712 {
         //     escrow.claimerBounty,
         //     escrow.depositToken,
         //     escrow.successActionCommitment,
-        //     timeout
+        //     timeout,
+        //     keccak256(_extraData)
         // ));
         bytes32 structTypeHash = INITIALIZE_STRUCT_TYPE_HASH;
         bytes32 structHash;
@@ -47,7 +48,7 @@ contract EIP712Sighash is EIP712 {
             //We don't need to allocate memory properly here (with mstore(0x40, newOffset)), 
             // since we only use it as scratch-space for hashing, we can keep the free memory
             // pointer as-is
-            // mstore(0x40, add(ptr, 576))
+            // mstore(0x40, add(ptr, 608))
 
             mstore(ptr, structTypeHash)
             mstore(add(ptr, 32), escrowHash)
@@ -65,7 +66,9 @@ contract EIP712Sighash is EIP712 {
             calldatacopy(add(ptr, 288), add(escrow, 160), 256)
             
             mstore(add(ptr, 544), timeout)
-            structHash := keccak256(ptr, 576)
+            let extraDataHash := keccak256(add(_extraData, 32), mload(_extraData))
+            mstore(add(ptr, 576), extraDataHash)
+            structHash := keccak256(ptr, 608)
         }
         sighash = _hashTypedDataV4(structHash);
     }

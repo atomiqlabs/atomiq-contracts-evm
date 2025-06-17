@@ -2,7 +2,10 @@
 pragma solidity ^0.8.28;
 
 struct Fork {
+    //Slot 0
     mapping(uint256 => bytes32) chain;
+    
+    //Slot 1
     uint32 startHeight;
     uint32 tipHeight;
 }

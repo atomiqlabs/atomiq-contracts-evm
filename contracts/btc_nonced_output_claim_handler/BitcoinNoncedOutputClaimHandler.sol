@@ -33,11 +33,12 @@ contract BitcoinNoncedOutputClaimHandler {
         bytes32 commitmentHash;
         assembly ("memory-safe") {
             expectedTxoHash := calldataload(witness.offset)
-            let confirmationsAndBtcRelayContract := calldataload(add(witness.offset, 24))
-            confirmations := and(shr(160 ,confirmationsAndBtcRelayContract), 0xffffffff)
-            btcRelayContract := and(confirmationsAndBtcRelayContract, 0xffffffffffffffffffffffffffffffffffffffff)
+            //Load both confirmations and btcRelayContract address at offset 32
+            let confirmationsAndBtcRelayContract := calldataload(add(witness.offset, 32))
+            confirmations := shr(224 ,confirmationsAndBtcRelayContract) //Extract first 4-bytes
+            btcRelayContract := and(shr(64, confirmationsAndBtcRelayContract), 0xffffffffffffffffffffffffffffffffffffffff) //Next 20-bytes
 
-            calldatacopy(0, witness.offset, 56)
+            calldatacopy(0, witness.offset, 56) //Copy to scratch space (0-64)
             commitmentHash := keccak256(0, 56)
         }
         //Verify claim data commitment
@@ -50,22 +51,24 @@ contract BitcoinNoncedOutputClaimHandler {
         uint32 position; //4-bytes
         bytes32[] calldata proof;
         assembly ("memory-safe") {
-            let calldataPtr := add(witness.offset, 216)
+            let calldataPtr := add(witness.offset, 216) //Offset of 56-bytes commitment + 160-bytes blockheader
+            //Read 4-byte vout
             vout := shr(224, calldataload(calldataPtr))
             calldataPtr := add(calldataPtr, 4)
 
             let transactionLength := calldataload(calldataPtr)
-            let totalCopyLength := add(transactionLength, 32)
-            rawTransaction := mload(0x40) //Free memory pointer
+            let totalCopyLength := add(transactionLength, 32) //Byte length + 32-bytes length prefix
+            //Allocate memory
+            rawTransaction := mload(0x40)
             mstore(0x40, add(rawTransaction, totalCopyLength))
-            calldatacopy(rawTransaction, calldataPtr, totalCopyLength)
-
+            calldatacopy(rawTransaction, calldataPtr, totalCopyLength) //Copy data with the length prefix
             calldataPtr := add(calldataPtr, totalCopyLength)
 
-            position := shr(224, calldataload(calldataPtr))
+            position := shr(224, calldataload(calldataPtr)) //4-byte position
             calldataPtr := add(calldataPtr, 4)
-            proof.length := calldataload(calldataPtr)
-            calldataPtr := add(calldataPtr, 32)
+
+            proof.length := calldataload(calldataPtr) //32-byte proof length
+            calldataPtr := add(calldataPtr, 32) //Offset the start to be after the proof length prefix
             proof.offset := calldataPtr
         }
 
@@ -91,11 +94,11 @@ contract BitcoinNoncedOutputClaimHandler {
         // }
 
         bytes32 txoHash;
-        assembly {
-            let nonce := or(shl(24, locktimeSub500M), and(firstNSequence, 0x00FFFFFF))
-            mstore(0x00, or(shl(64, nonce), outputValue))
+        assembly ("memory-safe") {
+            let nonce := or(shl(24, locktimeSub500M), and(firstNSequence, 0x00FFFFFF)) // (locktime << 24) | (firstNSequence & 0x00ffffff)
+            mstore(0x00, or(shl(64, nonce), outputValue)) //This stores 2 x 8-byte values in the least significant bits
             mstore(0x20, scriptHash)
-            txoHash := keccak256(16, 48)
+            txoHash := keccak256(16, 48) //Hash starting at offset 16, so we only hash the 2 x 8-bytes values
         }
         require(expectedTxoHash==txoHash, "btcnoutlock: Invalid output");
 

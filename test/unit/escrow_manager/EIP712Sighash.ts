@@ -6,6 +6,7 @@ import hre from "hardhat";
 import {randomBytes} from "crypto";
 import { fromBuffer } from "../../utils/buffer_utils";
 import { getEscrowHash, getRandomEscrowData } from "../../utils/evm/escrow_data";
+import { randomUnsigned } from "../../utils/random";
 
 describe("EIP712Sighash", function () {
     async function deploy() {
@@ -23,6 +24,8 @@ describe("EIP712Sighash", function () {
             const escrow = getRandomEscrowData();
             const swapHash = getEscrowHash(escrow);
             const timeout = fromBuffer(randomBytes(32), "be");
+            const extraData = randomBytes(randomUnsigned(8));
+            const extraDataHash = hre.ethers.keccak256(extraData);
             const hash = hre.ethers.TypedDataEncoder.hash(domain, {
                 Initialize: [
                     { name: "swapHash", type: "bytes32" },
@@ -41,7 +44,8 @@ describe("EIP712Sighash", function () {
                     { name: "claimerBounty", type: "uint256" },
                     { name: "depositToken", type: "address" },
                     { name: "claimActionHash", type: "bytes32" },
-                    { name: "deadline", type: "uint256" }
+                    { name: "deadline", type: "uint256" },
+                    { name: "extraDataHash", type: "bytes32" }
                 ]
             }, {
                 swapHash,
@@ -60,9 +64,10 @@ describe("EIP712Sighash", function () {
                 claimerBounty: escrow.claimerBounty,
                 depositToken: escrow.depositToken,
                 claimActionHash: escrow.successActionCommitment,
-                deadline: timeout
+                deadline: timeout,
+                extraDataHash
             });
-            return [escrow, swapHash, timeout, hash] as const;
+            return [escrow, swapHash, timeout, extraData, hash] as const;
         }
 
         function getRandomRefundTest() {
@@ -83,8 +88,8 @@ describe("EIP712Sighash", function () {
     it("Random valid init", async function () {
         const {contract, getRandomInitTest} = await loadFixture(deploy);
         for(let i=0;i<100;i++) {
-            const [escrow, swapHash, timeout, result] = getRandomInitTest();
-            assert.strictEqual(await contract.EIP712Sighash_getInitSighash(escrow, swapHash, timeout), result);
+            const [escrow, swapHash, timeout, extraData, result] = getRandomInitTest();
+            assert.strictEqual(await contract.EIP712Sighash_getInitSighash(escrow, swapHash, timeout, extraData), result);
         }
     });
 

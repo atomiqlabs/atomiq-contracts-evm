@@ -16,17 +16,28 @@ library ReputationStateImpl {
     using MathUtils for uint32;
     using MathUtils for uint224;
 
+    //Optimized read function, that reads all the values at once
     function read(ReputationState storage self) view internal returns (uint224 amount, uint32 count) {
+        //The following assembly is equivalent to:
+        // count = self.count;
+        // amount = self.amount;
         assembly {
             let value := sload(self.slot)
-            amount := and(value, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
             count := shr(224, value)
+            amount := and(value, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
         }
     }
 
+    //Optimized write function that writes all the values at once
     function write(ReputationState storage self, uint224 amount, uint32 count) internal {
+        //The following assembly is equivalent to:
+        // self.count = count;
+        // self.amount = amount;
         assembly {
-            sstore(self.slot, or(amount, shl(224, count)))
+            sstore(self.slot, or(
+                shl(224, count),
+                amount
+            ))
         }
     }
 

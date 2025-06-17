@@ -43,9 +43,9 @@ struct EscrowData {
 uint256 constant EscrowDataByteLength = 416;
 
 library EscrowDataImpl {
-    uint256 internal constant FLAG_PAY_OUT = 0x01;
-    uint256 internal constant FLAG_PAY_IN = 0x02;
-    uint256 internal constant FLAG_REPUTATION = 0x04;
+    uint256 internal constant FLAG_PAY_OUT = 0x01;      //0b001
+    uint256 internal constant FLAG_PAY_IN = 0x02;       //0b010
+    uint256 internal constant FLAG_REPUTATION = 0x04;   //0b100
 
     //A keccak256 hash of the struct, used as a key for mapping storing the escrow state
     function hash(EscrowData calldata self) pure internal returns (bytes32 result) {
