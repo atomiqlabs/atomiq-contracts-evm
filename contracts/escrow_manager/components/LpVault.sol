@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.28;
 
-import "../../transfer_utils/TransferUtils.sol";
+import {TransferUtils} from "../../transfer_utils/TransferUtils.sol";
 
 struct LpVaultBalanceQuery {
     address owner;

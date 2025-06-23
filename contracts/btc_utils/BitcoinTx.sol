@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.28;
 
-import "./Endianness.sol";
+import {Endianness} from "./Endianness.sol";
 
 //Struct is kept for reference only. It is stored in the packed format in inputs field of the BitcoinTx struct
 struct BitcoinTxInput {

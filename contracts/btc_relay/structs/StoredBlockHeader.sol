@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.28;
 
-import "./BlockHeader.sol";
-import "../utils/Nbits.sol";
-import "../utils/Difficulty.sol";
-import "../../btc_utils/Endianness.sol";
-import "../Constants.sol";
+import {BlockHeaderUtils} from "./BlockHeader.sol";
+import {Nbits} from "../utils/Nbits.sol";
+import {Difficulty} from "../utils/Difficulty.sol";
+import {Endianness} from "../../btc_utils/Endianness.sol";
+import {DIFFICULTY_ADJUSTMENT_INTERVAL, MAX_FUTURE_BLOCKTIME} from "../Constants.sol";
 
 /**
  * Bitcoin stored blockheader defined as a fixed-length bytes32 array

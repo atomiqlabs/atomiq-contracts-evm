@@ -1,22 +1,24 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.28;
 
-import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
+import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 
-import "../common/IClaimHandler.sol";
-import "../common/IRefundHandler.sol";
+import {IClaimHandler} from "../common/IClaimHandler.sol";
+import {IRefundHandler} from "../common/IRefundHandler.sol";
 
-import "./components/EscrowStorage.sol";
-import "./components/LpVault.sol";
-import "./components/ReputationTracker.sol";
-import "./components/EIP712Sighash.sol";
+import {EscrowStorage} from "./components/EscrowStorage.sol";
+import {LpVault} from "./components/LpVault.sol";
+import {ReputationTracker} from "./components/ReputationTracker.sol";
+import {EIP712Sighash} from "./components/EIP712Sighash.sol";
 
-import "./structs/Escrow.sol";
+import {EscrowData, EscrowDataImpl} from "./structs/Escrow.sol";
 
-import "../execution_proxy/structs/ExecutionAction.sol";
-import "../execution_proxy/Executor.sol";
+import {ExecutionAction, ExecutionActionImpl} from "../execution_proxy/structs/ExecutionAction.sol";
+import {Executor} from "../execution_proxy/Executor.sol";
 
-import "./Events.sol";
+import {Events} from "./Events.sol";
+
+import {TransferUtils} from "../transfer_utils/TransferUtils.sol";
 
 interface IEscrowManager {
     //Initializes the escrow

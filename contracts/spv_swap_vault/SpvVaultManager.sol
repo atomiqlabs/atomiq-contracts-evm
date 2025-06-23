@@ -1,23 +1,24 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.28;
 
-import "./state/SpvVaultState.sol";
-import "./structs/SpvVaultParameters.sol";
-import "./structs/BitcoinVaultTransactionData.sol";
-import "./Events.sol";
-import "./Utils.sol";
+import {SpvVaultState, SpvVaultStateImpl} from "./state/SpvVaultState.sol";
+import {SpvVaultParameters, SpvVaultParametersImpl} from "./structs/SpvVaultParameters.sol";
+import {BitcoinVaultTransactionData, BitcoinVaultTransactionDataImpl} from "./structs/BitcoinVaultTransactionData.sol";
+import {Events} from "./Events.sol";
+import {Utils} from "./Utils.sol";
 
-import "../btc_utils/BitcoinTx.sol";
-import "../btc_utils/BitcoinMerkleTree.sol";
+import {BitcoinTx, BitcoinTxImpl} from "../btc_utils/BitcoinTx.sol";
+import {BitcoinMerkleTree} from "../btc_utils/BitcoinMerkleTree.sol";
 
 import {StoredBlockHeader, StoredBlockHeaderImpl} from "../btc_relay/structs/StoredBlockHeader.sol";
 import {IBtcRelayView} from "../btc_relay/BtcRelay.sol";
 
-import "../transfer_utils/TransferUtils.sol";
+import {TransferUtils} from "../transfer_utils/TransferUtils.sol";
 
-import "../execution_contract/structs/Execution.sol";
-import {ExecutionContract} from "../execution_contract/ExecutionContract.sol";
+import {Execution} from "../execution_contract/structs/Execution.sol";
+import {IExecutionContract} from "../execution_contract/ExecutionContract.sol";
 
+import {MathUtils} from "../utils/MathUtils.sol";
 
 interface ISpvVaultManager {
     //Creates the vault and initiates it with the first UTXO in the chain
@@ -51,11 +52,11 @@ contract SpvVaultManager is ISpvVaultManager, ISpvVaultManagerView {
     using BitcoinTxImpl for BitcoinTx;
     using MathUtils for uint64;
 
-    ExecutionContract immutable _executionContract;
+    IExecutionContract immutable _executionContract;
     mapping(address => mapping(uint96 => SpvVaultState)) _vaults;
     mapping(address => mapping(uint96 => mapping(bytes32 => address))) _liquidityFronts;
 
-    constructor(ExecutionContract executionContract) {
+    constructor(IExecutionContract executionContract) {
         _executionContract = executionContract;
     }
 

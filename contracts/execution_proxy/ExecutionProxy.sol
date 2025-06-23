@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.28;
 
-import "./structs/ContractCall.sol";
-import "../transfer_utils/TransferUtils.sol";
+import {ContractCall} from "./structs/ContractCall.sol";
+import {TransferUtils} from "../transfer_utils/TransferUtils.sol";
 
 interface IExecutionProxy {
     function execute(ContractCall[] calldata data) external;

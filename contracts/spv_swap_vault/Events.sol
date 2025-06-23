@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.28;
 
-import "./structs/SpvVaultParameters.sol";
+import {SpvVaultParameters} from "./structs/SpvVaultParameters.sol";
 
 library Events {
     event Opened(address indexed owner, uint96 indexed vaultId, bytes32 indexed btcTxHash, uint32 vout, SpvVaultParameters params);

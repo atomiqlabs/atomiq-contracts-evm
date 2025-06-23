@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.28;
 
-import "../common/IClaimHandler.sol";
-import "../btc_relay/structs/StoredBlockHeader.sol";
-import "../btc_relay/BtcRelay.sol";
-import "../btc_utils/BitcoinMerkleTree.sol";
-import "../btc_utils/BitcoinTx.sol";
+import {IClaimHandler} from "../common/IClaimHandler.sol";
+import {StoredBlockHeader, StoredBlockHeaderImpl} from "../btc_relay/structs/StoredBlockHeader.sol";
+import {IBtcRelayView} from "../btc_relay/BtcRelay.sol";
+import {BitcoinMerkleTree} from "../btc_utils/BitcoinMerkleTree.sol";
+import {BitcoinTx, BitcoinTxImpl} from "../btc_utils/BitcoinTx.sol";
 
 //Claim handler for bitcoin chain, requiring a pre-specified output script with a pre-specified amount
 // as one of the outputs of the transaction.
@@ -13,7 +13,7 @@ import "../btc_utils/BitcoinTx.sol";
 //txoHash = keccak256(uint64 outputAmount || keccak256(bytes outputScript))
 //Commitment: C = abi.encodePacked(bytes32 txoHash, uint32 confirmations, address btcRelayContract)
 //Witness: W = C || StoredBlockHeader blockheader || uint32 vout || bytes transaction || uint32 position || bytes32[] merkleProof
-contract BitcoinOutputClaimHandler {
+contract BitcoinOutputClaimHandler is IClaimHandler {
     
     using StoredBlockHeaderImpl for StoredBlockHeader;
     using BitcoinTxImpl for BitcoinTx;

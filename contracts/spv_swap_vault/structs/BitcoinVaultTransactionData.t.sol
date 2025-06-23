@@ -2,7 +2,6 @@
 pragma solidity ^0.8.28;
 
 import "../../btc_utils/BitcoinTx.sol";
-import "../../utils/MathUtils.sol";
 
 import "./BitcoinVaultTransactionData.sol";
 

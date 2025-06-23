@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.28;
 
-import "../structs/Escrow.sol";
-import "../state/EscrowState.sol";
+import {EscrowData, EscrowDataImpl} from "../structs/Escrow.sol";
+import {EscrowState, EscrowStateImpl} from "../state/EscrowState.sol";
 
 interface IEscrowStorageView {
     function getState(EscrowData calldata escrowData) external view returns (EscrowState memory result);

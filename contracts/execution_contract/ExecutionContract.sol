@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.28;
 
-import "./structs/Execution.sol";
-import "../execution_proxy/structs/ExecutionAction.sol";
-import "../execution_proxy/ExecutionProxy.sol";
-import "../transfer_utils/TransferUtils.sol";
-import "./Events.sol";
-import "../execution_proxy/Executor.sol";
+import {Execution, ExecutionImpl} from "./structs/Execution.sol";
+import {ExecutionAction, ExecutionActionImpl} from "../execution_proxy/structs/ExecutionAction.sol";
+import {ExecutionProxy} from "../execution_proxy/ExecutionProxy.sol";
+import {TransferUtils} from "../transfer_utils/TransferUtils.sol";
+import {Events} from "./Events.sol";
+import {Executor} from "../execution_proxy/Executor.sol";
 
 interface IExecutionContract {
     //Creates a new execution
@@ -24,7 +24,7 @@ interface IExecutionContractView {
     function getExecutionCommitmentHash(address owner, bytes32 salt) external view returns (bytes32);
 }
 
-contract ExecutionContract is Executor {
+contract ExecutionContract is Executor, IExecutionContract, IExecutionContractView {
 
     using ExecutionImpl for Execution;
     using ExecutionActionImpl for ExecutionAction;

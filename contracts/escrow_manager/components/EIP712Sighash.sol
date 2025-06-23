@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.28;
 
-import "../structs/Escrow.sol";
+import {EscrowData, EscrowDataImpl} from "../structs/Escrow.sol";
 import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 
 contract EIP712Sighash is EIP712 {

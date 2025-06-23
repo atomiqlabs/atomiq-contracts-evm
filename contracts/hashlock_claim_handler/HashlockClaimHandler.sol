@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.28;
 
-import "../common/IClaimHandler.sol";
+import {IClaimHandler} from "../common/IClaimHandler.sol";
 
 //Claim handler for hashlocks
 //Claim data: C = bytes32 representation of the sha256 hash

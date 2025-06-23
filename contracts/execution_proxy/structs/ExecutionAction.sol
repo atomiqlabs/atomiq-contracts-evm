@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.28;
 
-import "./ContractCall.sol";
+import {ContractCall} from "./ContractCall.sol";
 
 struct ExecutionAction {
     //Gas limit for the contract calls, 0 is a placeholder for forwarding all the available gas

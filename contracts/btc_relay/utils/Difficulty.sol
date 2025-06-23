@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.28;
 
-import "./Nbits.sol";
-import "../Constants.sol";
+import {Nbits} from "./Nbits.sol";
+import {
+    TARGET_TIMESPAN, TARGET_TIMESPAN_DIV_4, TARGET_TIMESPAN_MUL_4,
+    ROUNDED_MAX_TARGET, ROUNDED_MAX_TARGET_NBITS
+} from "../Constants.sol";
 
 library Difficulty {
 

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.28;
 
-import "./state/Fork.sol";
-import "./structs/StoredBlockHeader.sol";
-import "./Events.sol";
+import {ForkImpl, Fork} from "./state/Fork.sol";
+import {StoredBlockHeaderImpl, StoredBlockHeader} from "./structs/StoredBlockHeader.sol";
+import {Events} from "./Events.sol";
 
 interface IBtcRelay {
     function submitMainBlockheaders(bytes calldata data) external;

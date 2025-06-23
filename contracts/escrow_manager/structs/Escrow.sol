@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.28;
 
-import "../../utils/MathUtils.sol";
+import {MathUtils} from "../../utils/MathUtils.sol";
 
 //Escrow data, this is hashed and used as a storage key for the escrow state mapping
 struct EscrowData {

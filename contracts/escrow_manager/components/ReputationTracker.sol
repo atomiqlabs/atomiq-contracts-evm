@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.28;
 
-import "../state/ReputationState.sol";
+import {ReputationState, ReputationStateImpl} from "../state/ReputationState.sol";
 
 struct ReputationQuery {
     address owner;

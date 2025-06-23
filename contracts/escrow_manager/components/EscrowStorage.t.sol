@@ -2,7 +2,6 @@
 pragma solidity ^0.8.28;
 
 import "../structs/Escrow.sol";
-import "../state/EscrowState.sol";
 import "./EscrowStorage.sol";
 
 contract EscrowStorageWrapper is EscrowStorage {

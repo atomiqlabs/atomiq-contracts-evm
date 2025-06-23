@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.28;
 
-import "../common/IClaimHandler.sol";
-import "../btc_relay/structs/StoredBlockHeader.sol";
-import "../btc_relay/BtcRelay.sol";
-import "../btc_utils/BitcoinMerkleTree.sol";
+import {IClaimHandler} from "../common/IClaimHandler.sol";
+import {StoredBlockHeader, StoredBlockHeaderImpl} from "../btc_relay/structs/StoredBlockHeader.sol";
+import {IBtcRelayView} from "../btc_relay/BtcRelay.sol";
+import {BitcoinMerkleTree} from "../btc_utils/BitcoinMerkleTree.sol";
 
 //Claim handler for bitcoin chain txId locks based on light client verification
 //Commitment: C = abi.encodePacked(bytes32 reversedTxId, uint32 confirmations, address btcRelayContract)
 //Witness: W = C || StoredBlockHeader blockheader || uint32 position || bytes32[] merkleProof
-contract BitcoinTxIdClaimHandler {
+contract BitcoinTxIdClaimHandler is IClaimHandler {
     
     using StoredBlockHeaderImpl for StoredBlockHeader;
 

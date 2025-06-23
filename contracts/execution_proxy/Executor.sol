@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.28;
 
-import "../transfer_utils/TransferUtils.sol";
-import "./ExecutionProxy.sol";
-import "./structs/ExecutionAction.sol";
+import {TransferUtils} from "../transfer_utils/TransferUtils.sol";
+import {ExecutionProxy} from "./ExecutionProxy.sol";
+import {ExecutionAction, ExecutionActionImpl} from "./structs/ExecutionAction.sol";
 
 contract Executor {
 

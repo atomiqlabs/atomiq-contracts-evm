@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.28;
 
-import "../../utils/MathUtils.sol";
-import "../structs/SpvVaultParameters.sol";
+import {MathUtils} from "../../utils/MathUtils.sol";
+import {SpvVaultParameters, SpvVaultParametersImpl} from "../structs/SpvVaultParameters.sol";
 
 struct SpvVaultState {
     //Storage slot 0

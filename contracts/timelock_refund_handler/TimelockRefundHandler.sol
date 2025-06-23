@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.28;
 
-import "../common/IRefundHandler.sol";
+import {IRefundHandler} from "../common/IRefundHandler.sol";
 
 //Refund handler for timestamp based timelocks
 //Claim data: C = uint256 expiry timestamp

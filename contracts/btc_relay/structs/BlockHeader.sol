@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.28;
 
-import "../../btc_utils/Endianness.sol";
+import {Endianness} from "../../btc_utils/Endianness.sol";
 
 /**
  * Bitcoin blockheader decoding from bytes (previous block hash is not included and is instead

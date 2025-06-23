@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.28;
 
-import "../../btc_utils/BitcoinTx.sol";
-import "../../utils/MathUtils.sol";
-import "../Utils.sol";
+import {BitcoinTx, BitcoinTxImpl} from "../../btc_utils/BitcoinTx.sol";
+import {MathUtils} from "../../utils/MathUtils.sol";
+import {Utils} from "../Utils.sol";
 
 struct BitcoinVaultTransactionData {
     address recipient;
