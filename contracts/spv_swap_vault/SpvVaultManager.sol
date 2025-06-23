@@ -41,7 +41,7 @@ interface ISpvVaultManagerView {
     function parseBitcoinTx(bytes calldata transaction) pure external returns (BitcoinVaultTransactionData memory vault);
 }
 
-contract SpvVaultManager {
+contract SpvVaultManager is ISpvVaultManager, ISpvVaultManagerView {
 
     using SpvVaultParametersImpl for SpvVaultParameters;
     using SpvVaultStateImpl for SpvVaultState;
@@ -50,12 +50,39 @@ contract SpvVaultManager {
     using StoredBlockHeaderImpl for StoredBlockHeader;
     using BitcoinTxImpl for BitcoinTx;
 
-    ExecutionContract immutable executionContract;
-    mapping(address => mapping(uint96 => SpvVaultState)) vaults;
-    mapping(address => mapping(uint96 => mapping(bytes32 => address))) liquidityFronts;
+    ExecutionContract immutable _executionContract;
+    mapping(address => mapping(uint96 => SpvVaultState)) _vaults;
+    mapping(address => mapping(uint96 => mapping(bytes32 => address))) _liquidityFronts;
+
+    constructor(ExecutionContract executionContract) {
+        _executionContract = executionContract;
+    }
+
+    //Returns the current LP vault state
+    function getVault(address owner, uint96 vaultId) view external returns (SpvVaultState memory vault) {
+        vault = _vaults[owner][vaultId];
+    }
+
+    //Returns the address of the fronter for a specific btc tx (if any)
+    function getFronterAddress(address owner, uint96 vaultId, bytes32 btcTxHash, BitcoinVaultTransactionData memory data) view external returns (address fronter) {
+        fronter = _liquidityFronts[owner][vaultId][data.hash(btcTxHash)];
+    }
+
+    //Returns the address of the fronter for a fronting id (if any)
+    function getFronterById(address owner, uint96 vaultId, bytes32 frontingId) view external returns (address fronter) {
+        fronter = _liquidityFronts[owner][vaultId][frontingId];
+    }
+    
+    //Utility sanity call to check if the given bitcoin transaction is parsable
+    function parseBitcoinTx(bytes memory transaction) pure external returns (BitcoinVaultTransactionData memory data) {
+        bool success;
+        string memory err;
+        (success, data, err) = BitcoinVaultTransactionDataImpl.fromTx(BitcoinTxImpl.fromMemory(transaction));
+        require(success, err);
+    }
 
     function open(uint96 vaultId, SpvVaultParameters calldata vaultParams, bytes32 utxoTxHash, uint32 utxoVout) external {
-        SpvVaultState storage vault = vaults[msg.sender][vaultId];
+        SpvVaultState storage vault = _vaults[msg.sender][vaultId];
 
         //Check vault is not opened
         require(!vault.isOpened(), "open: already opened");
@@ -68,7 +95,7 @@ contract SpvVaultManager {
     }
 
     function deposit(address owner, uint96 vaultId, SpvVaultParameters calldata vaultParams, uint64 rawToken0, uint64 rawToken1) external payable {
-        SpvVaultState storage vault = vaults[owner][vaultId];
+        SpvVaultState storage vault = _vaults[owner][vaultId];
         //Check vault is opened & valid params supplied
         vault.checkOpenedAndParams(vaultParams);
 
@@ -85,7 +112,7 @@ contract SpvVaultManager {
     
     //Fronts the liquidity for a specific bitcoin transaction
     function front(address owner, uint96 vaultId, SpvVaultParameters calldata vaultParams, uint32 withdrawalSequence, bytes32 btcTxHash, BitcoinVaultTransactionData memory data) external payable {
-        SpvVaultState storage vault = vaults[owner][vaultId];
+        SpvVaultState storage vault = _vaults[owner][vaultId];
         //Check vault is opened & valid params supplied
         vault.checkOpenedAndParams(vaultParams);
         
@@ -96,10 +123,10 @@ contract SpvVaultManager {
         bytes32 frontingId = data.hash(btcTxHash);
         
         //Check if this was already fronted
-        require(liquidityFronts[owner][vaultId][frontingId] == address(0x0), "front: already fronted");
+        require(_liquidityFronts[owner][vaultId][frontingId] == address(0x0), "front: already fronted");
 
         //Mark as fronted
-        liquidityFronts[owner][vaultId][frontingId] = msg.sender;
+        _liquidityFronts[owner][vaultId][frontingId] = msg.sender;
 
         (bool rawAmount0Success, uint64 rawAmount0) = MathUtils.castToUint64(data.amount0 + data.executionHandlerFeeAmount0);
         require(rawAmount0Success, "front: amount0 overflow");
@@ -126,7 +153,7 @@ contract SpvVaultManager {
     
     //Claim funds from the vault, given a proper bitcoin transaction as verified through the relay contract
     function claim(address owner, uint96 vaultId, SpvVaultParameters calldata vaultParams, bytes memory transaction, StoredBlockHeader memory blockheader, bytes32[] calldata merkleProof, uint256 position) external {
-        SpvVaultState storage vault = vaults[owner][vaultId];
+        SpvVaultState storage vault = _vaults[owner][vaultId];
         //Check vault is opened & valid params supplied
         vault.checkOpenedAndParams(vaultParams);
 
@@ -182,7 +209,7 @@ contract SpvVaultManager {
         //Check if this was already fronted
         address recipient = txData.recipient;
         bytes32 frontingId = txData.hash(btcTxHash);
-        address frontingAddress = liquidityFronts[owner][vaultId][frontingId];
+        address frontingAddress = _liquidityFronts[owner][vaultId][frontingId];
         if(frontingAddress != address(0x0)) {
             //Transfer funds to the account that fronted
             unchecked { //Unchecked arithmetics is fine, because we are summing 64-bit values using 256-bit arithmetics
@@ -244,10 +271,11 @@ contract SpvVaultManager {
 
     //Internal functions
     function _close(address owner, uint96 vaultId, SpvVaultParameters calldata vaultParams, bytes32 btcTxHash, string memory err) internal {
-        vaults[owner][vaultId].close();
+        SpvVaultState storage vault = _vaults[owner][vaultId];
+        vault.close();
 
         //Calculate amounts left in the vault
-        (uint256 amount0, uint256 amount1) = vaultParams.fromRaw(vaults[owner][vaultId].token0Amount, vaults[owner][vaultId].token1Amount);
+        (uint256 amount0, uint256 amount1) = vaultParams.fromRaw(vault.token0Amount, vault.token1Amount);
 
         //Payout funds back to owner
         _transferOut(owner, vaultParams.token0, amount0, vaultParams.token1, amount1);
@@ -258,10 +286,10 @@ contract SpvVaultManager {
     function _transferIn(address token0, uint256 amount0, address token1, uint256 amount1) internal {
         if(token0==token1) {
             //Transfer in one go, due to TransferUtils limitation when receiving native token
-            TransferUtils.transferIn(msg.sender, token0, amount0 + amount1);
+            TransferUtils.transferIn(token0, msg.sender, amount0 + amount1);
         } else {
-            if(amount0 > 0) TransferUtils.transferIn(msg.sender, token0, amount0);
-            if(amount1 > 0) TransferUtils.transferIn(msg.sender, token1, amount1);
+            if(amount0 > 0) TransferUtils.transferIn(token0, msg.sender, amount0);
+            if(amount1 > 0) TransferUtils.transferIn(token1, msg.sender, amount1);
         }
     }
 
@@ -298,10 +326,10 @@ contract SpvVaultManager {
             expiry: data.executionExpiry
         });
         if(vaultParams.token0 == address(0x0)) {
-            executionContract.create{value: amount0 + executionHandlerFee}(data.recipient, btcTxHash, execution);
+            _executionContract.create{value: amount0 + executionHandlerFee}(data.recipient, btcTxHash, execution);
         } else {
-            TransferUtils.approve(vaultParams.token0, address(executionContract), amount0 + executionHandlerFee);
-            executionContract.create(data.recipient, btcTxHash, execution);
+            TransferUtils.approve(vaultParams.token0, address(_executionContract), amount0 + executionHandlerFee);
+            _executionContract.create(data.recipient, btcTxHash, execution);
         }
     }
 

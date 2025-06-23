@@ -1,4 +1,6 @@
 import hre from "hardhat";
+import { randomAddress } from "./utils";
+import { randomUnsignedBigInt } from "../random";
 
 export type SpvVaultParameters = {
     btcRelayContract: string;
@@ -17,4 +19,15 @@ export function getSpvVaultParametersHash(struct: SpvVaultParameters) {
         [struct]
     );
     return hre.ethers.keccak256(encoded);
+}
+
+export function getRandomSpvVaultParameters(): SpvVaultParameters {
+    return {
+        btcRelayContract: hre.ethers.getAddress(randomAddress()),
+        token0: hre.ethers.getAddress(randomAddress()),
+        token1: hre.ethers.getAddress(randomAddress()),
+        token0Multiplier: randomUnsignedBigInt(192),
+        token1Multiplier: randomUnsignedBigInt(192),
+        confirmations: randomUnsignedBigInt(256)
+    };
 }
