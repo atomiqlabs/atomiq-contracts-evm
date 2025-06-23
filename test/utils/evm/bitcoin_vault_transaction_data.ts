@@ -18,12 +18,10 @@ export function getBitcoinVaultTransactionDataHash(struct: BitcoinVaultTransacti
         ["tuple(address recipient, uint64 amount0, uint64 amount1, uint64 callerFee0, uint64 callerFee1, uint64 frontingFee0, uint64 frontingFee1, uint64 executionHandlerFeeAmount0, bytes32 executionHash, uint256 executionExpiry)"],
         [struct]
     );
-    console.log(encoded);
     const structHash = hre.ethers.keccak256(encoded);
     const encoded2 = hre.ethers.AbiCoder.defaultAbiCoder().encode(
         ["bytes32", "bytes32"],
         [structHash, btcTxHash]
     );
-    console.log(encoded2);
     return hre.ethers.keccak256(encoded2);
 }

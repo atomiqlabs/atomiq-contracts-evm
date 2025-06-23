@@ -12,6 +12,10 @@ contract MathUtilsWrapper {
     function checkedSubUint64(uint64 a, uint256 b) pure external returns (bool success, uint64 result) {
         (success, result) = MathUtils.checkedSubUint64(a, b);
     }
+    
+    function uncheckedAddUint64(uint64 a, uint256 b) pure external returns (uint64 result) {
+        result = MathUtils.uncheckedAddUint64(a, b);
+    }
 
     function saturatingAddOneUint32(uint32 a) pure external returns (uint32 result) {
         result = MathUtils.saturatingAddOneUint32(a);

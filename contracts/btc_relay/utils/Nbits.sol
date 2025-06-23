@@ -20,10 +20,10 @@ library Nbits {
 
             switch lt(nSize, 3)
             case 1 {
-                target := shr(mul(sub(3, nSize), 8), nWord)
+                target := shr(shl(3, sub(3, nSize)), nWord) //shl(3, sub(3, nSize)) == mul(sub(3, nSize), 8)
             }
             default {
-                target := shl(mul(sub(nSize, 3), 8), nWord)
+                target := shl(shl(3, sub(nSize, 3)), nWord) //shl(3, sub(nSize, 3)) == mul(sub(nSize, 3), 8)
             }
         }
         require(target == 0 || reversedNbits & 0x8000 == 0, "Nbits: negative");
@@ -49,10 +49,10 @@ library Nbits {
 
                 let result
                 switch lt(nSize, 3) case 1 {
-                    result := shl(mul(sub(3, nSize), 8), target)
+                    result := shl(shl(3, sub(3, nSize)), target) //shl(3, sub(3, nSize)) == mul(sub(3, nSize), 8)
                 }
                 default {
-                    result := shr(mul(sub(nSize, 3), 8), target)
+                    result := shr(shl(3, sub(nSize, 3)), target) //shl(3, sub(nSize, 3)) == mul(sub(nSize, 3), 8)
                 }
 
                 //Check that nbits are not encoding negative number, in case yes, shift

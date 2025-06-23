@@ -183,7 +183,7 @@ describe("StoredBlockHeader", function () {
 
         for(let i=0;i<10;i++) {
             const [first, second] = generateRandomInvalidPoWUpdate();
-            await expect(assertUpdateChain(first, second, false)).to.be.revertedWith("updateChain: invalid PoW");
+            await expect(assertUpdateChain(first, second, false, false)).to.be.revertedWith("updateChain: invalid PoW");
         }
     });
 

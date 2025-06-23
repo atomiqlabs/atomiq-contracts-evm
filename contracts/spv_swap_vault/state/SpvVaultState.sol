@@ -58,10 +58,11 @@ library SpvVaultStateImpl {
         self.spvVaultParametersCommitment = bytes32(0x00);
     }
 
-    function withdraw(SpvVaultState storage self, bytes32 btcTxHash, uint32 vout, uint64 rawAmount0, uint64 rawAmount1) internal returns (bool success, uint32 _withdrawCount, string memory error) {
+    function withdraw(SpvVaultState storage self, bytes32 btcTxHash, uint32 vout, uint64 rawAmount0, uint64 rawAmount1) internal returns (bool success, uint32 withdrawCount, string memory error) {
         uint256 value;
         uint64 _token0Amount;
         uint64 _token1Amount;
+        uint32 _withdrawCount;
         assembly {
             value := sload(add(self.slot, 2))
             _token0Amount := and(shr(128, value), 0xffffffffffffffff)
@@ -74,7 +75,7 @@ library SpvVaultStateImpl {
         if(!token0AmountSuccess) return (false, _withdrawCount, "withdraw: amount 0");
         (bool token1AmountSuccess, uint64 token1Amount) = _token1Amount.checkedSubUint64(rawAmount1);
         if(!token1AmountSuccess) return (false, _withdrawCount, "withdraw: amount 1");
-        uint256 withdrawCount = _withdrawCount.saturatingAddOneUint32();
+        withdrawCount = _withdrawCount.saturatingAddOneUint32();
 
         //Mask and pack to the value
         value = (value & 0x00000000000000000000000000000000ffffffff00000000ffffffff00000000) |
@@ -111,7 +112,7 @@ library SpvVaultStateImpl {
 
         _token0Amount += rawAmount0;
         _token1Amount += rawAmount1;
-        depositCount = _depositCount++;
+        depositCount = ++_depositCount;
 
         //Mask and pack to the value
         value = (value & 0x0000000000000000000000000000000000000000ffffffffffffffffffffffff) |

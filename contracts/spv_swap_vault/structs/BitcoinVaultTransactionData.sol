@@ -3,6 +3,7 @@ pragma solidity ^0.8.28;
 
 import "../../btc_utils/BitcoinTx.sol";
 import "../../utils/MathUtils.sol";
+import "../Utils.sol";
 
 struct BitcoinVaultTransactionData {
     address recipient;
@@ -42,12 +43,12 @@ library BitcoinVaultTransactionDataImpl {
 
         //nSequence0: 10xx xxxx xxxx yyyy yyyy yyyy yyyy yyyy
         //nSequence1: 10xx xxxx xxxx zzzz zzzz zzzz zzzz zzzz
-        uint256 callerFee_u20 = input0nSequence & 0xFFFFF /*0b1111_1111_1111_1111_1111*/;
-        uint256 executionHandlerFee_u20 = input1nSequence & 0xFFFFF /*0b1111_1111_1111_1111_1111*/;
-        uint256 frontingFee_u20 = ((input0nSequence >> 10) & 0xFFC00 /*0b1111_1111_1100_0000_0000*/) | ((input1nSequence >> 20) & 0x3FF /*0b11_1111_1111*/);
+        uint24 callerFee_u20 = uint24(input0nSequence & 0xFFFFF) /*0b1111_1111_1111_1111_1111*/;
+        uint24 executionHandlerFee_u20 = uint24(input1nSequence & 0xFFFFF) /*0b1111_1111_1111_1111_1111*/;
+        uint24 frontingFee_u20 = uint24((input0nSequence >> 10) & 0xFFC00 /*0b1111_1111_1100_0000_0000*/) | uint24((input1nSequence >> 20) & 0x3FF /*0b11_1111_1111*/);
 
         //Use locktime to determine timeout of the execution handler
-        uint256 executionExpiry = btcTx.getLocktime() + 1_000_000_000;
+        uint256 executionExpiry = uint256(btcTx.getLocktime()) + 1_000_000_000;
         
         //Make sure output has correct length
         address recipient;
@@ -89,32 +90,28 @@ library BitcoinVaultTransactionDataImpl {
 
         if(recipient == address(0x0)) return (false, data, "txData: output 1 invalid len");
 
-        //This is safe, since we only multiply 64-bit values with 20-bit values, therefore no overflow will ever happen with 256-bit numbers
-        unchecked {
-            (bool callerFeeAmount0Success, uint64 callerFeeAmount0) = MathUtils.castToUint64(uint256(amount0) * callerFee_u20 / 100_000);
-            if(!callerFeeAmount0Success) return (false, data, "txData: caller fee 0");
-            (bool frontingFeeAmount0Success, uint64 frontingFeeAmount0) = MathUtils.castToUint64(uint256(amount0) * frontingFee_u20 / 100_000);
-            if(!frontingFeeAmount0Success) return (false, data, "txData: fronting fee 0");
-            (bool executionHandlerFeeAmount0Success, uint64 executionHandlerFeeAmount0) = MathUtils.castToUint64(uint256(amount0) * executionHandlerFee_u20 / 100_000);
-            if(!executionHandlerFeeAmount0Success) return (false, data, "txData: execution fee 0");
+        (bool callerFeeAmount0Success, uint64 callerFeeAmount0) = Utils.calculateFee(amount0, callerFee_u20);
+        if(!callerFeeAmount0Success) return (false, data, "txData: caller fee 0");
+        (bool frontingFeeAmount0Success, uint64 frontingFeeAmount0) = Utils.calculateFee(amount0, frontingFee_u20);
+        if(!frontingFeeAmount0Success) return (false, data, "txData: fronting fee 0");
+        (bool executionHandlerFeeAmount0Success, uint64 executionHandlerFeeAmount0) = Utils.calculateFee(amount0, executionHandlerFee_u20);
+        if(!executionHandlerFeeAmount0Success) return (false, data, "txData: execution fee 0");
 
-            (bool callerFeeAmount1Success, uint64 callerFeeAmount1) = MathUtils.castToUint64(uint256(amount1) * callerFee_u20 / 100_000);
-            if(!callerFeeAmount1Success) return (false, data, "txData: caller fee 1");
-            (bool frontingFeeAmount1Success, uint64 frontingFeeAmount1) = MathUtils.castToUint64(uint256(amount1) * frontingFee_u20 / 100_000);
-            if(!frontingFeeAmount1Success) return (false, data, "txData: fronting fee 1");
+        (bool callerFeeAmount1Success, uint64 callerFeeAmount1) = Utils.calculateFee(amount1, callerFee_u20);
+        if(!callerFeeAmount1Success) return (false, data, "txData: caller fee 1");
+        (bool frontingFeeAmount1Success, uint64 frontingFeeAmount1) = Utils.calculateFee(amount1, frontingFee_u20);
+        if(!frontingFeeAmount1Success) return (false, data, "txData: fronting fee 1");
 
-
-            data.recipient = recipient;
-            data.amount0 = amount0;
-            data.amount1 = amount1;
-            data.callerFee0 = callerFeeAmount0;
-            data.callerFee1 = callerFeeAmount1;
-            data.frontingFee0 = frontingFeeAmount0;
-            data.frontingFee1 = frontingFeeAmount1;
-            data.executionHandlerFeeAmount0 = executionHandlerFeeAmount0;
-            data.executionHash = executionHash;
-            data.executionExpiry = executionExpiry;
-        }
+        data.recipient = recipient;
+        data.amount0 = amount0;
+        data.amount1 = amount1;
+        data.callerFee0 = callerFeeAmount0;
+        data.callerFee1 = callerFeeAmount1;
+        data.frontingFee0 = frontingFeeAmount0;
+        data.frontingFee1 = frontingFeeAmount1;
+        data.executionHandlerFeeAmount0 = executionHandlerFeeAmount0;
+        data.executionHash = executionHash;
+        data.executionExpiry = executionExpiry;
 
         success = true;
     }

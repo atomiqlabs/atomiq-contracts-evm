@@ -27,6 +27,26 @@ describe("MathUtils", function () {
         assert.isFalse(success);
     });
 
+    it("Valid uncheckedAddUint64", async function () {
+        const {contract} = await loadFixture(deploy);
+        
+        const a = 1238182423n;
+        const b = 323123132n;
+
+        const result = await contract.uncheckedAddUint64(a, b);
+        assert.strictEqual(result, a + b);
+    });
+    
+    it("Invalid uncheckedAddUint64, overflow (unchecked so simply just returns the lower bits of the value)", async function () {
+        const {contract} = await loadFixture(deploy);
+        
+        const a = 1238182423n;
+        const b = 912387128741987243981236127843782123n;
+
+        const result = await contract.uncheckedAddUint64(a, b);
+        assert.strictEqual(result, (a + b) & 0xffffffffffffffffn);
+    });
+
     it("Valid checkedSubUint64", async function () {
         const {contract} = await loadFixture(deploy);
         

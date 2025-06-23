@@ -190,7 +190,7 @@ describe("SpvVaultState", function () {
         }, btcTxHash, btcVout, 100n, 50n);
 
         assert.isTrue(success);
-        assert.strictEqual(withdrawCount, 2312n);
+        assert.strictEqual(withdrawCount, 2312n + 1n);
 
         assert.strictEqual(result.spvVaultParametersCommitment, spvVaultParametersCommitment);
         assert.strictEqual(result.utxoTxHash, btcTxHash);
@@ -292,7 +292,7 @@ describe("SpvVaultState", function () {
             spvVaultState, 32123233n, 82173723n
         );
 
-        assert.strictEqual(depositCount, spvVaultState.depositCount);
+        assert.strictEqual(depositCount, spvVaultState.depositCount + 1n);
         
         assert.strictEqual(result.spvVaultParametersCommitment, spvVaultState.spvVaultParametersCommitment);
         assert.strictEqual(result.utxoTxHash, spvVaultState.utxoTxHash);

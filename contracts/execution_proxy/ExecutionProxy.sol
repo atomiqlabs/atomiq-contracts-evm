@@ -17,7 +17,7 @@ contract ExecutionProxy is IExecutionProxy {
         for(uint256 i=0;i<data.length;i++) {
             (bool success, bytes memory returnData) = data[i].target.call{value: data[i].value}(data[i].data);
             // Bubble up the original revert reason using inline assembly
-            if(!success) assembly {
+            if(!success) assembly ("memory-safe") {
                 revert(add(returnData, 32), mload(returnData))
             }
         }

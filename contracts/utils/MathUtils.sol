@@ -17,6 +17,12 @@ library MathUtils {
         }
     }
 
+    function uncheckedAddUint64(uint64 a, uint256 b) pure internal returns (uint64 result) {
+        assembly {
+            result := add(a, b)
+        }
+    }
+
     function saturatingAddOneUint32(uint32 a) pure internal returns (uint32 result) {
         assembly {
             result := add(a, lt(a, 0xffffffff))

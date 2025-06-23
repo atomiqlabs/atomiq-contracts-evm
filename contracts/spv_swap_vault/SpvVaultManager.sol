@@ -49,6 +49,7 @@ contract SpvVaultManager is ISpvVaultManager, ISpvVaultManagerView {
 
     using StoredBlockHeaderImpl for StoredBlockHeader;
     using BitcoinTxImpl for BitcoinTx;
+    using MathUtils for uint64;
 
     ExecutionContract immutable _executionContract;
     mapping(address => mapping(uint96 => SpvVaultState)) _vaults;
@@ -128,8 +129,7 @@ contract SpvVaultManager is ISpvVaultManager, ISpvVaultManagerView {
         //Mark as fronted
         _liquidityFronts[owner][vaultId][frontingId] = msg.sender;
 
-        (bool rawAmount0Success, uint64 rawAmount0) = MathUtils.castToUint64(data.amount0 + data.executionHandlerFeeAmount0);
-        require(rawAmount0Success, "front: amount0 overflow");
+        uint64 rawAmount0 = data.amount0 + data.executionHandlerFeeAmount0;
         uint64 rawAmount1 = data.amount1;
 
         //Transfer funds from caller to contract
@@ -189,7 +189,7 @@ contract SpvVaultManager is ISpvVaultManager, ISpvVaultManagerView {
         }
 
         //This also makes sure that the sum of all the amounts + fees, is in the bounds of 64-bit integer, hence we can
-        // use unsafe arithmetics when working with the amount & fees from now on
+        // use unchecked arithmetics when working with (summing) the amount & fees from now on
         (bool successAmounts, uint64 amount0Raw, uint64 amount1Raw) = txData.getFullAmounts();
         if(!successAmounts) {
             _close(owner, vaultId, vaultParams, btcTxHash, "claim: full amounts");
@@ -202,66 +202,65 @@ contract SpvVaultManager is ISpvVaultManager, ISpvVaultManagerView {
             return;
         }
 
-        //Transfer funds to caller
-        (uint256 callerFeeToken0, uint256 callerFeeToken1) = vaultParams.fromRaw(txData.callerFee0, txData.callerFee1);
-        _transferOut(msg.sender, vaultParams.token0, callerFeeToken0, vaultParams.token1, callerFeeToken1);
-
         //Check if this was already fronted
         address recipient = txData.recipient;
         bytes32 frontingId = txData.hash(btcTxHash);
         address frontingAddress = _liquidityFronts[owner][vaultId][frontingId];
         if(frontingAddress != address(0x0)) {
+            //Transfer funds to caller
+            (uint256 callerAmount0, uint256 callerAmount1) = vaultParams.fromRaw(txData.callerFee0, txData.callerFee1);
+            _transferOut(msg.sender, vaultParams.token0, callerAmount0, vaultParams.token1, callerAmount1);
+
             //Transfer funds to the account that fronted
-            unchecked { //Unchecked arithmetics is fine, because we are summing 64-bit values using 256-bit arithmetics
-                (,uint64 frontingAmount0Raw) = MathUtils.castToUint64(
-                    uint256(txData.amount0) + uint256(txData.frontingFee0) + uint256(txData.executionHandlerFeeAmount0)
-                ); //We can ignore the success flag, since all sums will surely be in the uint64 range, because of the prior txData.getFullAmounts() call
-                
-                (,uint64 frontingAmount1Raw) = MathUtils.castToUint64(
-                    uint256(txData.amount1) + uint256(txData.frontingFee1)
-                ); //We can ignore the success flag, since all sums will surely be in the uint64 range, because of the prior txData.getFullAmounts() call
-                
-                (uint256 frontingAmount0, uint256 frontingAmount1) = vaultParams.fromRaw(frontingAmount0Raw, frontingAmount1Raw);
+
+            //We can use uncheckedAddUint64, since all sums will surely be in the uint64 range, because of the prior txData.getFullAmounts() call
+            (uint256 frontingAmount0, uint256 frontingAmount1) = vaultParams.fromRaw(
+                txData.amount0.uncheckedAddUint64(txData.frontingFee0).uncheckedAddUint64(txData.executionHandlerFeeAmount0),
+                txData.amount1.uncheckedAddUint64(txData.frontingFee1)
+            );
+            
+            //Use non-reverting transfer function, since we also support paying out native currency (ETH), the transfer out can
+            // fail if the destination is a malicious contract that e.g. runs out of gas when called, or doesn't allow native
+            // currency deposits at all. We silently ignore this error if it happens.
+            _transferOutNoRevert(frontingAddress, vaultParams.token0, frontingAmount0, vaultParams.token1, frontingAmount1);
+        } else {
+            //Transfer caller fee + fronting fee to caller
+            //NOTE: The reason we are also sending fronting fee to the caller here is that even if we wouldn't an
+            // economically rational caller would just do a multical with front() & claim() in a single transaction
+            // essentially claiming both fees anyway, we therefore align this functionality with the economically
+            // rational behaviour of the caller
+
+            //We can use uncheckedAddUint64, since all sums will surely be in the uint64 range, because of the prior txData.getFullAmounts() call
+            (uint256 callerAmount0, uint256 callerAmount1) = vaultParams.fromRaw(
+                txData.frontingFee0.uncheckedAddUint64(txData.callerFee0),
+                txData.frontingFee1.uncheckedAddUint64(txData.callerFee1)
+            );
+            _transferOut(msg.sender, vaultParams.token0, callerAmount0, vaultParams.token1, callerAmount1);
+
+            if(txData.executionHash == bytes32(0x0)) {
+                //We can use uncheckedAddUint64, since all sums will surely be in the uint64 range, because of the prior txData.getFullAmounts() call
+                (uint256 payoutAmount0, uint256 payoutAmount1) = vaultParams.fromRaw(
+                    txData.amount0.uncheckedAddUint64(txData.executionHandlerFeeAmount0), 
+                    txData.amount1
+                );
                 
                 //Use non-reverting transfer function, since we also support paying out native currency (ETH), the transfer out can
                 // fail if the destination is a malicious contract that e.g. runs out of gas when called, or doesn't allow native
                 // currency deposits at all. We silently ignore this error if it happens.
-                _transferOutNoRevert(frontingAddress, vaultParams.token0, frontingAmount0, vaultParams.token1, frontingAmount1);
-            }
-        } else {
-            if(txData.executionHash == bytes32(0x0)) {
-                unchecked { //Unchecked arithmetics is fine, because we are summing 64-bit values using 256-bit arithmetics
-                    (,uint64 payoutAmount0Raw) = MathUtils.castToUint64(
-                        uint256(txData.amount0) + uint256(txData.frontingFee0) + uint256(txData.executionHandlerFeeAmount0)
-                    ); //We can ignore the success flag, since all sums will surely be in the uint64 range, because of the prior txData.getFullAmounts() call
-                    
-                    (,uint64 payoutAmount1Raw) = MathUtils.castToUint64(
-                        uint256(txData.amount1) + uint256(txData.frontingFee1)
-                    ); //We can ignore the success flag, since all sums will surely be in the uint64 range, because of the prior txData.getFullAmounts() call
-                    
-                    (uint256 payoutAmount0, uint256 payoutAmount1) = vaultParams.fromRaw(payoutAmount0Raw, payoutAmount1Raw);
-                    
-                    //Use non-reverting transfer function, since we also support paying out native currency (ETH), the transfer out can
-                    // fail if the destination is a malicious contract that e.g. runs out of gas when called, or doesn't allow native
-                    // currency deposits at all. We silently ignore this error if it happens.
-                    _transferOutNoRevert(recipient, vaultParams.token0, payoutAmount0, vaultParams.token1, payoutAmount1);
-                }
+                _transferOutNoRevert(recipient, vaultParams.token0, payoutAmount0, vaultParams.token1, payoutAmount1);
             } else {
-                unchecked { //Unchecked arithmetics is fine, because we are summing 64-bit values using 256-bit arithmetics
-                    //Pay out the gas token & fronting fee (in both, token0 and token1) straight to recipient
-                    (,uint64 payoutAmount1Raw) = MathUtils.castToUint64(
-                        uint256(txData.amount1) + uint256(txData.frontingFee1)
-                    ); //We can ignore the success flag, since all sums will surely be in the uint64 range, because of the prior txData.getFullAmounts() call
-                    (uint256 payoutAmount0, uint256 payoutAmount1) = vaultParams.fromRaw(txData.frontingFee0, payoutAmount1Raw);
+                if(txData.amount1 > 0) {
+                    //Pay out the gas token straight to recipient
+                    uint256 payoutAmount1 = vaultParams.fromRawToken1(txData.amount1);
                     
                     //Use non-reverting transfer function, since we also support paying out native currency (ETH), the transfer out can
                     // fail if the destination is a malicious contract that e.g. runs out of gas when called, or doesn't allow native
                     // currency deposits at all. We silently ignore this error if it happens.
-                    _transferOutNoRevert(recipient, vaultParams.token0, payoutAmount0, vaultParams.token1, payoutAmount1);
-
-                    //Rest is transfered to execution contract
-                    _toExecutionContract(vaultParams, txData, btcTxHash);
+                    TransferUtils.transferOutNoRevert(vaultParams.token1, recipient, payoutAmount1);
                 }
+
+                //Rest is transfered to execution contract
+                _toExecutionContract(vaultParams, txData, btcTxHash);
             }
         }
 

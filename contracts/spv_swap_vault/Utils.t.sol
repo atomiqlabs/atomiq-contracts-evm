@@ -9,4 +9,8 @@ contract UtilsWrapper {
         packedValue = Utils.packAddressAndVaultId(owner, vaultId);
     }
 
+    function calculateFee(uint64 baseAmount, uint24 feeSharePer100K) pure external returns (bool success, uint64 result) {
+        (success, result) = Utils.calculateFee(baseAmount, feeSharePer100K);
+    }
+
 }
