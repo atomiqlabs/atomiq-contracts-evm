@@ -65,6 +65,13 @@ describe("SpvVaultState", function () {
         });
         
         assert.strictEqual(result.spvVaultParametersCommitment, "0x0000000000000000000000000000000000000000000000000000000000000000");
+        assert.strictEqual(result.utxoTxHash, "0x0000000000000000000000000000000000000000000000000000000000000000");
+        assert.strictEqual(result.utxoVout, 0n);
+        assert.strictEqual(result.openBlockheight, 0n);
+        assert.strictEqual(result.withdrawCount, 0n);
+        assert.strictEqual(result.depositCount, 0n);
+        assert.strictEqual(result.token0Amount, 0n);
+        assert.strictEqual(result.token1Amount, 0n);
     });
 
     it("Valid is opened (true)", async function () {

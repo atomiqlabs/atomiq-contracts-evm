@@ -58,7 +58,11 @@ library SpvVaultStateImpl {
     }
 
     function close(SpvVaultState storage self) internal {
-        self.spvVaultParametersCommitment = bytes32(0x00);
+        self.spvVaultParametersCommitment = bytes32(0x0);
+        self.utxoTxHash = bytes32(0x0);
+        assembly {
+            sstore(add(self.slot, 2), 0)
+        }
     }
 
     function withdraw(SpvVaultState storage self, bytes32 btcTxHash, uint32 vout, uint64 rawAmount0, uint64 rawAmount1) internal returns (bool success, uint32 withdrawCount, string memory error) {

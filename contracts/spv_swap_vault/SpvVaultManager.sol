@@ -272,10 +272,12 @@ contract SpvVaultManager is ISpvVaultManager, ISpvVaultManagerView {
     //Internal functions
     function _close(address owner, uint96 vaultId, SpvVaultParameters calldata vaultParams, bytes32 btcTxHash, string memory err) internal {
         SpvVaultState storage vault = _vaults[owner][vaultId];
-        vault.close();
 
         //Calculate amounts left in the vault
         (uint256 amount0, uint256 amount1) = vaultParams.fromRaw(vault.token0Amount, vault.token1Amount);
+
+        //Close the vault
+        vault.close();
 
         //Payout funds back to owner
         _transferOut(owner, vaultParams.token0, amount0, vaultParams.token1, amount1);

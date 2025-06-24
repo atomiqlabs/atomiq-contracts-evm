@@ -86,6 +86,13 @@ describe("SpvVaultManager", function () {
             //Ensure vault closed
             const vaultState = await contract.getVault(owner, vaultId);
             assert.strictEqual(vaultState.spvVaultParametersCommitment, "0x0000000000000000000000000000000000000000000000000000000000000000");
+            assert.strictEqual(vaultState.utxoTxHash, "0x0000000000000000000000000000000000000000000000000000000000000000");
+            assert.strictEqual(vaultState.utxoVout, 0n);
+            assert.strictEqual(vaultState.openBlockheight, 0n);
+            assert.strictEqual(vaultState.withdrawCount, 0n);
+            assert.strictEqual(vaultState.depositCount, 0n);
+            assert.strictEqual(vaultState.token0Amount, 0n);
+            assert.strictEqual(vaultState.token1Amount, 0n);
 
             //And funds transfered back to the account1
             const postBalance = await account1.provider.getBalance(owner);
