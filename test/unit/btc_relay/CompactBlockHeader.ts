@@ -8,10 +8,10 @@ import { serializeBitcoindBlockheader, serializeBlockheader } from "../../utils/
 import { getBlockheader, randomBitcoinHeight } from "../../utils/bitcoin_rpc_utils";
 import { reverseUint32 } from "../../utils/endianness";
 
-describe("BlockHeader", function () {
+describe("CompactBlockHeader", function () {
     async function deploy() {
-        const BlockHeaderWrapper = await hre.ethers.getContractFactory("BlockHeaderWrapper");
-        const contract = await BlockHeaderWrapper.deploy();
+        const CompactBlockHeaderWrapper = await hre.ethers.getContractFactory("CompactBlockHeaderWrapper");
+        const contract = await CompactBlockHeaderWrapper.deploy();
 
         return contract;
     }
@@ -41,7 +41,7 @@ describe("BlockHeader", function () {
         const nbits = 0x8732bcde;
 
         assert.equal(await contract.timestamp(serializeBlockheader(85384, randomBytes(32), timestamp, nbits, 763675653), 0), BigInt(timestamp));
-        assert.equal(await contract.reversedNbits(serializeBlockheader(85384, randomBytes(32), timestamp, nbits, 763675653), 0), reverseUint32(nbits));
+        assert.equal(await contract.nBitsLE(serializeBlockheader(85384, randomBytes(32), timestamp, nbits, 763675653), 0), reverseUint32(nbits));
     });
 
     it("Existing blockheaders", async function () {
@@ -57,7 +57,7 @@ describe("BlockHeader", function () {
             ]);
 
             assert.equal(await contract.timestamp(serialized, randomOffset), BigInt(blockHeader.time));
-            assert.equal(await contract.reversedNbits(serialized, randomOffset), reverseUint32(blockHeader.bits));
+            assert.equal(await contract.nBitsLE(serialized, randomOffset), reverseUint32(blockHeader.bits));
         }
     });
 });

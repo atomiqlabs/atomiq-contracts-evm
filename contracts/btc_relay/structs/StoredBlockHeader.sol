@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.28;
 
-import {BlockHeaderUtils} from "./BlockHeader.sol";
+import {CompactBlockHeaderImpl} from "./CompactBlockHeader.sol";
 import {Nbits} from "../utils/Nbits.sol";
 import {Difficulty} from "../utils/Difficulty.sol";
 import {Endianness} from "../../btc_utils/Endianness.sol";
@@ -19,15 +19,17 @@ import {DIFFICULTY_ADJUSTMENT_INTERVAL, MAX_FUTURE_BLOCKTIME} from "../Constants
 struct StoredBlockHeader {
     bytes32[5] data;
 }
+uint256 constant StoredBlockHeaderByteLength = 160;
+uint256 constant BitcoinBlockHeaderByteLength = 80;
 
 library StoredBlockHeaderImpl {
 
-    using BlockHeaderUtils for bytes;
+    using CompactBlockHeaderImpl for bytes;
 
     function fromCalldata(bytes calldata data, uint256 offset) pure internal returns (StoredBlockHeader memory storedHeader) {
-        require(data.length >= 160+offset, "StoredBlockHeader: out of bounds");
+        require(data.length >= StoredBlockHeaderByteLength+offset, "StoredBlockHeader: out of bounds");
         assembly ("memory-safe") {
-            calldatacopy(mload(storedHeader), add(data.offset, offset), 160) //Store stored header data
+            calldatacopy(mload(storedHeader), add(data.offset, offset), StoredBlockHeaderByteLength) //Store stored header data
         }
     }
 
@@ -58,7 +60,7 @@ library StoredBlockHeaderImpl {
         result = Endianness.reverseUint32(result);
     }
 
-    function header_reversedNbits(StoredBlockHeader memory self) pure internal returns (uint32 result) {
+    function header_nBitsLE(StoredBlockHeader memory self) pure internal returns (uint32 result) {
         assembly ("memory-safe") {
             result := shr(224, mload(add(mload(self), 72)))
         }
@@ -111,7 +113,7 @@ library StoredBlockHeaderImpl {
     function header_blockhash(StoredBlockHeader memory self) view internal returns (bytes32 result) {
         assembly ("memory-safe") {
             //Invoke first sha256 hash on the memory region now storing the current blockheader, destination is scratch space at 0x00
-            pop(staticcall(gas(), 0x02, mload(self), 80, 0x00, 32))
+            pop(staticcall(gas(), 0x02, mload(self), BitcoinBlockHeaderByteLength, 0x00, 32))
             //Invoke second sha256 on the scratch space at 0x00
             pop(staticcall(gas(), 0x02, 0x00, 32, 0x00, 32))
 
@@ -122,7 +124,7 @@ library StoredBlockHeaderImpl {
 
     function hash(StoredBlockHeader memory self) pure internal returns (bytes32 result) {
         assembly ("memory-safe") {
-            result := keccak256(mload(self), 160)
+            result := keccak256(mload(self), StoredBlockHeaderByteLength)
         }
     }
 
@@ -132,7 +134,7 @@ library StoredBlockHeaderImpl {
             let ptr := mload(self)
 
             //Invoke first sha256 hash on the memory region storing the previous blockheader, destination is scratch space at 0x00
-            pop(staticcall(gas(), 0x02, ptr, 80, 0x00, 32))
+            pop(staticcall(gas(), 0x02, ptr, BitcoinBlockHeaderByteLength, 0x00, 32))
             //Invoke second sha256 on the scratch space at 0x00, copy directly to where the previous blockhash should be stored for next stored blockheader
             pop(staticcall(gas(), 0x02, 0x00, 32, add(ptr, 4), 32))
 
@@ -141,7 +143,7 @@ library StoredBlockHeaderImpl {
             calldatacopy(add(ptr, 36), add(headers.offset, add(offset, 4)), 44)
 
             //Invoke first sha256 hash on the memory region now storing the current blockheader, destination is scratch space at 0x00
-            pop(staticcall(gas(), 0x02, ptr, 80, 0x00, 32))
+            pop(staticcall(gas(), 0x02, ptr, BitcoinBlockHeaderByteLength, 0x00, 32))
             //Invoke second sha256 on the scratch space at 0x00
             pop(staticcall(gas(), 0x02, 0x00, 32, 0x00, 32))
 
@@ -163,7 +165,7 @@ library StoredBlockHeaderImpl {
         //Check correct nbits
         uint256 currBlockHeight = blockHeight(self) + 1;
         uint32 _lastDiffAdjustment = lastDiffAdjustment(self);
-        uint32 newNbits = headers.reversedNbits(offset);
+        uint32 newNbits = headers.nBitsLE(offset);
         uint256 newTarget;
         if(currBlockHeight % DIFFICULTY_ADJUSTMENT_INTERVAL == 0) {
             //Compute new nbits, bitcoin uses the timestamp of the last block in the epoch to re-target PoW difficulty
@@ -172,7 +174,7 @@ library StoredBlockHeaderImpl {
             (newTarget, computedNbits) = Difficulty.computeNewTarget(
                 prevBlockTimestamp,
                 _lastDiffAdjustment,
-                header_reversedNbits(self),
+                header_nBitsLE(self),
                 clampTarget
             );
             require(newNbits == computedNbits, "updateChain: new nbits");
@@ -183,7 +185,7 @@ library StoredBlockHeaderImpl {
             _lastDiffAdjustment = currBlockTimestamp;
         } else {
             //nbits must be same as last block
-            require(newNbits == header_reversedNbits(self), "updateChain: nbits");
+            require(newNbits == header_nBitsLE(self), "updateChain: nbits");
             newTarget = Nbits.toTarget(newNbits);
         }
 

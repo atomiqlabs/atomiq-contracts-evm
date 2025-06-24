@@ -23,7 +23,7 @@ describe("StoredBlockHeader", function () {
             assert.equal(await contract.header_previousBlockhash(parsedStoredBlockHeader), "0x"+Buffer.from(blockHeader.previousblockhash, "hex").reverse().toString("hex"));
             assert.equal(await contract.header_merkleRoot(parsedStoredBlockHeader), "0x"+Buffer.from(blockHeader.merkleroot, "hex").reverse().toString("hex"));
             assert.equal(await contract.header_timestamp(parsedStoredBlockHeader), BigInt(blockHeader.time));
-            assert.equal(await contract.header_reversedNbits(parsedStoredBlockHeader), reverseUint32(blockHeader.bits));
+            assert.equal(await contract.header_nBitsLE(parsedStoredBlockHeader), reverseUint32(blockHeader.bits));
             assert.equal(await contract.header_nonce(parsedStoredBlockHeader), BigInt(blockHeader.nonce));
             assert.equal(await contract.chainWork(parsedStoredBlockHeader), BigInt("0x"+blockHeader.chainwork));
             assert.equal(await contract.blockHeight(parsedStoredBlockHeader), BigInt(blockHeader.height));
@@ -98,7 +98,7 @@ describe("StoredBlockHeader", function () {
         assert.equal(await contract.header_previousBlockhash(parsedStoredBlockHeader), "0x"+previousBlockHash.reverse().toString("hex"));
         assert.equal(await contract.header_merkleRoot(parsedStoredBlockHeader), "0x"+merkleRoot.reverse().toString("hex"));
         assert.equal(await contract.header_timestamp(parsedStoredBlockHeader), BigInt(timestamp));
-        assert.equal(await contract.header_reversedNbits(parsedStoredBlockHeader), reverseUint32(nbits));
+        assert.equal(await contract.header_nBitsLE(parsedStoredBlockHeader), reverseUint32(nbits));
         assert.equal(await contract.header_nonce(parsedStoredBlockHeader), BigInt(nonce));
         assert.equal(await contract.chainWork(parsedStoredBlockHeader), chainWork);
         assert.equal(await contract.blockHeight(parsedStoredBlockHeader), BigInt(blockHeight));

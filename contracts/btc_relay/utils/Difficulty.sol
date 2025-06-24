@@ -22,7 +22,7 @@ library Difficulty {
     // }
 
     //New version of the target computation, works directly with nBits
-    function computeNewTarget(uint32 prevTimestamp, uint32 startTimestamp, uint32 prevReversedNbits, bool clampTarget) pure internal returns (uint256 newTarget, uint32 newReversedNbits) {
+    function computeNewTarget(uint32 prevTimestamp, uint32 startTimestamp, uint32 prevNbitsLE, bool clampTarget) pure internal returns (uint256 newTarget, uint32 newNbitsLE) {
         uint256 timespan = uint256(prevTimestamp) - uint256(startTimestamp);
         //Difficulty increase/decrease multiples are clamped between 0.25 (-75%) and 4 (+300%)
         if(timespan < TARGET_TIMESPAN_DIV_4) timespan = TARGET_TIMESPAN_DIV_4;
@@ -30,13 +30,13 @@ library Difficulty {
 
         uint256 targetTimespan = TARGET_TIMESPAN;
         assembly {
-            let nSize := and(prevReversedNbits, 0xFF)
+            let nSize := and(prevNbitsLE, 0xFF)
             let nWord := or(
                 or(
-                    and(shl(16, prevReversedNbits), 0x7f000000),
-                    and(prevReversedNbits, 0xff0000)
+                    and(shl(16, prevNbitsLE), 0x7f000000),
+                    and(prevNbitsLE, 0xff0000)
                 ),
-                and(shr(16, prevReversedNbits), 0xff00)
+                and(shr(16, prevNbitsLE), 0xff00)
             ) //Shift it 1 more byte to the left, so we have enough precision when we do multiplication and division
             //The maximum value of the nWord is 0x7fffff00 (due to the extra shift to the left)
             //The range of values for the newNWord is from nWord/4 to nWord*4
@@ -61,7 +61,7 @@ library Difficulty {
                 nSize := add(nSize, 1)
             }
 
-            newReversedNbits := or(
+            newNbitsLE := or(
                 or(
                     and(shl(16, newNWord), 0xff000000),
                     and(newNWord, 0xff0000)
@@ -73,11 +73,11 @@ library Difficulty {
             )
         }
 
-        newTarget = Nbits.toTarget(newReversedNbits);
+        newTarget = Nbits.toTarget(newNbitsLE);
 
         if(clampTarget) {
             if(newTarget > ROUNDED_MAX_TARGET) {
-                newReversedNbits = ROUNDED_MAX_TARGET_NBITS;
+                newNbitsLE = ROUNDED_MAX_TARGET_NBITS;
                 newTarget = ROUNDED_MAX_TARGET;
             }
         }

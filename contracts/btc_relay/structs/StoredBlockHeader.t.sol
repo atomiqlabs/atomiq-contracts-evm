@@ -19,8 +19,8 @@ contract StoredBlockHeaderWrapper {
     function header_timestamp(StoredBlockHeader memory storedHeader) pure external returns (uint32) {
         return StoredBlockHeaderImpl.header_timestamp(storedHeader);
     }
-    function header_reversedNbits(StoredBlockHeader memory storedHeader) pure external returns (uint32) {
-        return StoredBlockHeaderImpl.header_reversedNbits(storedHeader);
+    function header_nBitsLE(StoredBlockHeader memory storedHeader) pure external returns (uint32) {
+        return StoredBlockHeaderImpl.header_nBitsLE(storedHeader);
     }
     function header_nonce(StoredBlockHeader memory storedHeader) pure external returns (uint32) {
         return StoredBlockHeaderImpl.header_nonce(storedHeader);

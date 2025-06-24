@@ -2,7 +2,7 @@
 pragma solidity ^0.8.28;
 
 import {IClaimHandler} from "../common/IClaimHandler.sol";
-import {StoredBlockHeader, StoredBlockHeaderImpl} from "../btc_relay/structs/StoredBlockHeader.sol";
+import {StoredBlockHeader, StoredBlockHeaderImpl, StoredBlockHeaderByteLength} from "../btc_relay/structs/StoredBlockHeader.sol";
 import {IBtcRelayView} from "../btc_relay/BtcRelay.sol";
 import {BitcoinMerkleTree} from "../btc_utils/BitcoinMerkleTree.sol";
 import {BitcoinTx, BitcoinTxImpl} from "../btc_utils/BitcoinTx.sol";
@@ -19,7 +19,7 @@ contract BitcoinOutputClaimHandler is IClaimHandler {
     using BitcoinTxImpl for BitcoinTx;
 
     function claim(bytes32 claimData, bytes calldata witness) external view returns (bytes memory witnessResult) {
-        require(witness.length >= 288, "btcoutlock: witness length");
+        require(witness.length >= 56 + StoredBlockHeaderByteLength + 4 + 32 + 4 + 32, "btcoutlock: witness length");
 
         //Commitment
         bytes32 expectedTxoHash; //32-bytes
@@ -43,11 +43,11 @@ contract BitcoinOutputClaimHandler is IClaimHandler {
         //Witness
         StoredBlockHeader memory blockheader = StoredBlockHeaderImpl.fromCalldata(witness, 56); //160-bytes
         uint32 vout; //4-bytes
-        bytes memory rawTransaction;
+        bytes memory rawTransaction; //32-byte length prefix + data 
         uint32 position; //4-bytes
-        bytes32[] calldata proof;
+        bytes32[] calldata proof; //32-byte length prefix + merkle proof hashes
         assembly ("memory-safe") {
-            let calldataPtr := add(witness.offset, 216) //Offset of 56-bytes commitment + 160-bytes blockheader
+            let calldataPtr := add(witness.offset, add(56, StoredBlockHeaderByteLength)) //Offset of 56-bytes commitment + 160-bytes blockheader
             //Read 4-byte vout
             vout := shr(224, calldataload(calldataPtr))
             calldataPtr := add(calldataPtr, 4)
@@ -90,6 +90,7 @@ contract BitcoinOutputClaimHandler is IClaimHandler {
         bytes32 txHash = transaction.getHash();
         BitcoinMerkleTree.verify(blockheader.header_merkleRoot(), txHash, proof, position);
 
+        //Return txHash as result
         assembly ("memory-safe") {
             witnessResult := mload(0x40) //Free memory pointer
             mstore(0x40, add(witnessResult, 64)) //Allocate 64 bytes of memory

@@ -41,17 +41,20 @@ library SpvVaultStateImpl {
         self.utxoTxHash = utxoTxHash;
 
         uint32 openBlockheight = uint32(block.number);
-        uint256 value = uint256(utxoVout) | (uint256(openBlockheight) << 32);
-        assembly {
-            sstore(add(self.slot, 2), value)
-        }
 
+        //The following block is equivalent to:
         // self.utxoVout = utxoVout;
-        // self.openBlockheight = uint32(block.number);
+        // self.openBlockheight = openBlockheight;
         // self.withdrawCount = 0;
         // self.depositCount = 0;
         // self.token0Amount = 0;
         // self.token1Amount = 0;
+        {
+            uint256 value = uint256(utxoVout) | (uint256(openBlockheight) << 32);
+            assembly {
+                sstore(add(self.slot, 2), value)
+            }
+        }
     }
 
     function close(SpvVaultState storage self) internal {
@@ -77,21 +80,24 @@ library SpvVaultStateImpl {
         if(!token1AmountSuccess) return (false, _withdrawCount, "withdraw: amount 1");
         withdrawCount = _withdrawCount.saturatingAddOneUint32();
 
-        //Mask and pack to the value
-        value = (value & 0x00000000000000000000000000000000ffffffff00000000ffffffff00000000) |
-            (uint256(token1Amount) << 192) |
-            (uint256(token0Amount) << 128) |
-            (uint256(withdrawCount) << 64) |
-            uint256(vout);
-        
-        //Update the state
-        assembly {
-            sstore(add(self.slot, 2), value)
-        }
+        //The following block is equivalent to:
         // self.token0Amount = token0Amount;
         // self.token1Amount = token1Amount;
-        // self.withdrawCount = _withdrawCount.saturatingAddOneUint32();
+        // self.withdrawCount = withdrawCount;
         // self.utxoVout = vout;
+        {
+            //Mask and pack to the value
+            value = (value & 0x00000000000000000000000000000000ffffffff00000000ffffffff00000000) |
+                (uint256(token1Amount) << 192) |
+                (uint256(token0Amount) << 128) |
+                (uint256(withdrawCount) << 64) |
+                uint256(vout);
+            
+            //Update the state
+            assembly {
+                sstore(add(self.slot, 2), value)
+            }
+        }
 
         self.utxoTxHash = btcTxHash;
 
@@ -114,15 +120,21 @@ library SpvVaultStateImpl {
         _token1Amount += rawAmount1;
         depositCount = ++_depositCount;
 
-        //Mask and pack to the value
-        value = (value & 0x0000000000000000000000000000000000000000ffffffffffffffffffffffff) |
-            (uint256(_token1Amount) << 192) |
-            (uint256(_token0Amount) << 128) |
-            (uint256(_depositCount) << 96);
+        //The following block is equivalent to:
+        // self.token0Amount = token0Amount;
+        // self.token1Amount = token1Amount;
+        // self.depositCount = _depositCount;
+        {
+            //Mask and pack to the value
+            value = (value & 0x0000000000000000000000000000000000000000ffffffffffffffffffffffff) |
+                (uint256(_token1Amount) << 192) |
+                (uint256(_token0Amount) << 128) |
+                (uint256(_depositCount) << 96);
 
-        //Update the state
-        assembly {
-            sstore(add(self.slot, 2), value)
+            //Update the state
+            assembly {
+                sstore(add(self.slot, 2), value)
+            }
         }
     }
 

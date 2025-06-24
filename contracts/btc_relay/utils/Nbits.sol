@@ -6,16 +6,16 @@ library Nbits {
     //Calculates difficulty target from nBits
     //Description: https://btcinformation.org/en/developer-reference#target-nbits
     //This implementation panics on negative targets, accepts oveflown targets
-    function toTarget(uint32 reversedNbits) pure internal returns (uint256 target) {
+    function toTarget(uint32 nBitsLE) pure internal returns (uint256 target) {
         uint256 nSize;
         assembly {
-            nSize := and(reversedNbits, 0xFF)
+            nSize := and(nBitsLE, 0xFF)
             let nWord := or(
                 or(
-                    and(shl(8, reversedNbits), 0x7f0000),
-                    and(shr(8, reversedNbits), 0xff00)
+                    and(shl(8, nBitsLE), 0x7f0000),
+                    and(shr(8, nBitsLE), 0xff00)
                 ),
-                and(shr(24, reversedNbits), 0xff)
+                and(shr(24, nBitsLE), 0xff)
             )
 
             switch lt(nSize, 3)
@@ -26,16 +26,16 @@ library Nbits {
                 target := shl(shl(3, sub(nSize, 3)), nWord) //shl(3, sub(nSize, 3)) == mul(sub(nSize, 3), 8)
             }
         }
-        require(target == 0 || reversedNbits & 0x8000 == 0, "Nbits: negative");
+        require(target == 0 || nBitsLE & 0x8000 == 0, "Nbits: negative");
     }
 
     //Compresses difficulty target to nBits
     //Description: https://btcinformation.org/en/developer-reference#target-nbits
-    function toReversedNbits(uint256 target) pure internal returns (uint32 reversedNbits) {
+    function toReversedNbits(uint256 target) pure internal returns (uint32 nBitsLE) {
         assembly {
             switch target
             case 0 {
-                reversedNbits := 0x00000000
+                nBitsLE := 0x00000000
             }
             default {
                 //Find first non-zero byte
@@ -62,7 +62,7 @@ library Nbits {
                     nSize := add(nSize, 1)
                 }
 
-                reversedNbits := or(
+                nBitsLE := or(
                     or(
                         and(shl(24, result), 0xff000000),
                         and(shl(8, result), 0xff0000)
