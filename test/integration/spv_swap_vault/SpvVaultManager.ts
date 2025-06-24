@@ -11,7 +11,7 @@ import { randomUnsigned, randomUnsignedBigInt } from "../../utils/random";
 import { ExecutionAction, getExecutionActionHash } from "../../utils/evm/execution_action";
 import {randomBytes} from "crypto";
 import { getRandomSpvVaultParameters, getSpvVaultParametersHash, SpvVaultParameters } from "../../utils/evm/spv_vault_parameters";
-import { getValidSpvVaultBtcTx, parseSpvVaultBtcTx } from "./generators/spv_vault_btc_tx";
+import { getValidSpvVaultBtcTx, parseSpvVaultBtcTx } from "../../generators/spv_swap_vault/spv_vault_btc_tx";
 import { generateMerkleRoot } from "../../utils/merkle_tree";
 import { mineBitcoinBlock } from "../../utils/blockchain_utils";
 import { serializeBitcoindStoredBlockheaderToStruct } from "../../utils/evm/stored_blockheader";

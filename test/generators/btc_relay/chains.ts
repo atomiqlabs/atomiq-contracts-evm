@@ -1,4 +1,4 @@
-import { createBitcoinChain, mineBitcoinBlock } from "../../../utils/blockchain_utils";
+import { createBitcoinChain, mineBitcoinBlock } from "../../utils/blockchain_utils";
 
 
 export function generateMainChain() {

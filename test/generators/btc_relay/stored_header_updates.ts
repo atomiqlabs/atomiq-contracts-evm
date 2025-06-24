@@ -1,7 +1,7 @@
 import {randomBytes} from "crypto";
-import { randomUnsignedBigInt } from "../../../utils/random";
-import { createBitcoinChain, mineBitcoinBlock } from "../../../utils/blockchain_utils";
-import { BitcoindBlockheader, getBlockheader } from "../../../utils/bitcoin_rpc_utils";
+import { randomUnsignedBigInt } from "../../utils/random";
+import { createBitcoinChain, mineBitcoinBlock } from "../../utils/blockchain_utils";
+import { BitcoindBlockheader, getBlockheader } from "../../utils/bitcoin_rpc_utils";
 
 function shuffle<T>(array: T[]): T[] {
     let currentIndex = array.length;

@@ -9,7 +9,7 @@ import { BitcoindBlockheader, getBlockheader, randomBitcoinEpoch, randomBitcoinH
 import { reverseUint32 } from "../../utils/endianness";
 import { serializeBitcoindStoredBlockheader, serializeStoredBlockheader } from "../../utils/evm/stored_blockheader";
 import { randomUnsignedBigInt } from "../../utils/random";
-import { generateRandomInvalidnBitsDiffAdjustmentUpdate, generateRandomInvalidnBitsUpdate, generateRandomInvalidPoWUpdate, generateRandomInvalidPrevBlockhashUpdate, generateRandomInvalidTimestampFutureUpdate, generateRandomInvalidTimestampMedianUpdate, generateRandomPoWAdjustmentBlockUpdate, generateRandomValidBlockUpdate, generateRandomValidTimestampMedianUpdate, generateRealValidBlockUpdate } from "./generators/stored_header_updates";
+import { generateRandomInvalidnBitsDiffAdjustmentUpdate, generateRandomInvalidnBitsUpdate, generateRandomInvalidPoWUpdate, generateRandomInvalidPrevBlockhashUpdate, generateRandomInvalidTimestampFutureUpdate, generateRandomInvalidTimestampMedianUpdate, generateRandomPoWAdjustmentBlockUpdate, generateRandomValidBlockUpdate, generateRandomValidTimestampMedianUpdate, generateRealValidBlockUpdate } from "../../generators/btc_relay/stored_header_updates";
 import { mineBitcoinBlock } from "../../utils/blockchain_utils";
 
 

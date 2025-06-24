@@ -3,7 +3,7 @@ import {
 } from "@nomicfoundation/hardhat-toolbox/network-helpers";
 import { assert } from "chai";
 import hre from "hardhat";
-import { getSpvVaultBtcTx, getValidSpvVaultBtcTx } from "./generators/spv_vault_btc_tx";
+import { getSpvVaultBtcTx, getValidSpvVaultBtcTx } from "../../generators/spv_swap_vault/spv_vault_btc_tx";
 import { randomAddress, randomBytes32 } from "../../utils/evm/utils";
 import { Transaction } from "bitcoinjs-lib";
 import { toBuffer } from "../../utils/buffer_utils";

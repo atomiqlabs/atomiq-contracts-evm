@@ -7,7 +7,7 @@ import {randomBytes} from "crypto";
 import { serializeBitcoindBlockheader, serializeBlockheader } from "../../utils/evm/blockheader";
 import { getBlockheader, randomBitcoinEpoch, randomBitcoinHeight } from "../../utils/bitcoin_rpc_utils";
 import { reverseUint32 } from "../../utils/endianness";
-import { generateComputeNewTargetTest, generateGetChainworkRandomTest, generateGetChainworkTest } from "./generators/difficulty";
+import { generateComputeNewTargetTest, generateGetChainworkRandomTest, generateGetChainworkTest } from "../../generators/btc_relay/difficulty";
 import { nbitsToTarget, targetTonBits } from "../../utils/nbits";
 
 describe("Difficulty", function () {

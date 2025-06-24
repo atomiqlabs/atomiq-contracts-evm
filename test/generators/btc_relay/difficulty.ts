@@ -1,5 +1,5 @@
-import { getBlockheader } from "../../../utils/bitcoin_rpc_utils";
-import { getDifficulty, nbitsToTarget } from "../../../utils/nbits";
+import { getBlockheader } from "../../utils/bitcoin_rpc_utils";
+import { getDifficulty, nbitsToTarget } from "../../utils/nbits";
 import {randomBytes} from "crypto";
 
 export async function generateComputeNewTargetTest(epoch: number): Promise<{

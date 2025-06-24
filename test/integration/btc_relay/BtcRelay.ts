@@ -7,13 +7,13 @@ import {randomBytes} from "crypto";
 import { serializeBitcoindBlockheader, serializeBlockheader } from "../../utils/evm/blockheader";
 import { BitcoindBlockheader, getBlockheader, randomBitcoinEpoch, randomBitcoinHeight } from "../../utils/bitcoin_rpc_utils";
 import { reverseUint32 } from "../../utils/endianness";
-import { generateComputeNewTargetTest, generateGetChainworkRandomTest, generateGetChainworkTest } from "./generators/difficulty";
+import { generateComputeNewTargetTest, generateGetChainworkRandomTest, generateGetChainworkTest } from "../../generators/btc_relay/difficulty";
 import { nbitsToTarget, targetTonBits } from "../../utils/nbits";
 import type {BtcRelay} from "../../../typechain-types/contracts/btc_relay/BtcRelay.sol/BtcRelay";
 import { hashBitcoindStoredBlockheader, serializeBitcoindStoredBlockheader, serializeBitcoindStoredBlockheaderToStruct } from "../../utils/evm/stored_blockheader";
 import { mineBitcoinBlock, mineRandomBitcoinBlock } from "../../utils/blockchain_utils";
-import { generateInvalidForkNotEnoughChainwork, generateInvalidForkNotEnoughLength, generateMainChain, generateMainChainWithDiffAdjustment, generateSuccessfulFork, generateSuccessfulForkWithMoreChainwork, generateSuccessfulForkWithMoreChainworkAndForkFromFutureHeight } from "./generators/chains";
-import { generateRandomInvalidnBitsDiffAdjustmentUpdate, generateRandomInvalidnBitsUpdate, generateRandomInvalidPoWUpdate, generateRandomInvalidPrevBlockhashUpdate, generateRandomInvalidTimestampMedianUpdate } from "./generators/stored_header_updates";
+import { generateInvalidForkNotEnoughChainwork, generateInvalidForkNotEnoughLength, generateMainChain, generateMainChainWithDiffAdjustment, generateSuccessfulFork, generateSuccessfulForkWithMoreChainwork, generateSuccessfulForkWithMoreChainworkAndForkFromFutureHeight } from "../../generators/btc_relay/chains";
+import { generateRandomInvalidnBitsDiffAdjustmentUpdate, generateRandomInvalidnBitsUpdate, generateRandomInvalidPoWUpdate, generateRandomInvalidPrevBlockhashUpdate, generateRandomInvalidTimestampMedianUpdate } from "../../generators/btc_relay/stored_header_updates";
 
 describe("BtcRelay", function () {
     async function deploy() {

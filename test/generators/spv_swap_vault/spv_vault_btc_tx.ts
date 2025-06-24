@@ -1,8 +1,8 @@
 import { Transaction } from "bitcoinjs-lib";
 import {randomBytes} from "crypto";
-import { randomUnsigned } from "../../../utils/random";
-import { fromBuffer, toBuffer } from "../../../utils/buffer_utils";
-import { BitcoinVaultTransactionData } from "../../../utils/evm/bitcoin_vault_transaction_data";
+import { randomUnsigned } from "../../utils/random";
+import { fromBuffer, toBuffer } from "../../utils/buffer_utils";
+import { BitcoinVaultTransactionData } from "../../utils/evm/bitcoin_vault_transaction_data";
 
 export function getSpvVaultBtcTx(inputSequences: bigint[], outputScripts: Buffer[], locktime: bigint): Transaction {
 

@@ -10,7 +10,7 @@ import { randomBytes32 } from "../../utils/evm/utils";
 import { randomBytes } from "crypto";
 import { generateMerkleRoot } from "../../utils/merkle_tree";
 import { createBitcoinChain, mineBitcoinBlock, mineBitcoinBlockAfter } from "../../utils/blockchain_utils";
-import { generateMainChain } from "../btc_relay/generators/chains";
+import { generateMainChain } from "../../generators/btc_relay/chains";
 import { serializeBitcoindBlockheader } from "../../utils/evm/blockheader";
 import { getMempoolApiMerkleProof } from "../../utils/mempool_utils";
 

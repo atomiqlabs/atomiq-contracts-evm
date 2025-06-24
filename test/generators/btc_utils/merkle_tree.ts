@@ -1,7 +1,7 @@
 import {randomBytes} from "crypto";
-import { generateMerkleRoot } from "../../../utils/merkle_tree";
-import { getBlockWithTransactions, randomBitcoinHeight } from "../../../utils/bitcoin_rpc_utils";
-import { getMempoolApiMerkleProof } from "../../../utils/mempool_utils";
+import { generateMerkleRoot } from "../../utils/merkle_tree";
+import { getBlockWithTransactions, randomBitcoinHeight } from "../../utils/bitcoin_rpc_utils";
+import { getMempoolApiMerkleProof } from "../../utils/mempool_utils";
 
 export async function generateMerkleTreeRealRandomTest(): Promise<[string, string, string[], number]> {
     const height = randomBitcoinHeight();

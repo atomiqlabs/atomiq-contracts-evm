@@ -1,6 +1,6 @@
-import { getBlockWithTransactions, getTransaction, randomBitcoinHeight } from "../../../utils/bitcoin_rpc_utils";
+import { getBlockWithTransactions, getTransaction, randomBitcoinHeight } from "../../utils/bitcoin_rpc_utils";
 import {Transaction} from "bitcoinjs-lib";
-import { getRandomTransaction } from "../../../utils/bitcoin_tx";
+import { getRandomTransaction } from "../../utils/bitcoin_tx";
 
 export type BitcoinTxTestData = {
     data: Buffer,

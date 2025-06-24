@@ -3,7 +3,7 @@ import {
 } from "@nomicfoundation/hardhat-toolbox/network-helpers";
 import { assert } from "chai";
 import hre from "hardhat";
-import { generateMerkleTreeRandomTest, generateMerkleTreeRealRandomTest } from "./generators/merkle_tree";
+import { generateMerkleTreeRandomTest, generateMerkleTreeRealRandomTest } from "../../generators/btc_utils/merkle_tree";
 
 describe("BitcoinMerkleTree", function () {
     async function deploy() {

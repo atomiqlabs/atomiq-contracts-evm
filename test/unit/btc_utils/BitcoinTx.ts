@@ -3,7 +3,7 @@ import {
 } from "@nomicfoundation/hardhat-toolbox/network-helpers";
 import { assert, expect } from "chai";
 import hre from "hardhat";
-import { BitcoinTxTestData, getRandomTransactionTest, getRealRandomTransactionTest, getRealTransactionTest } from "./generators/bitcoin_tx";
+import { BitcoinTxTestData, getRandomTransactionTest, getRealRandomTransactionTest, getRealTransactionTest } from "../../generators/btc_utils/bitcoin_tx";
 
 describe("BitcoinTx", function () {
     async function deploy() {
