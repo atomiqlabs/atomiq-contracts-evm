@@ -173,7 +173,7 @@ describe("EscrowManager", function () {
             const tx = await signer.sendTransaction(unsignedTx);
 
             //Ensure event emitted
-            await expect(tx).to.emit(contract, "Initialize").withArgs(escrowData.offerer, escrowData.claimer, swapHash);
+            await expect(tx).to.emit(contract, "Initialize").withArgs(escrowData.offerer, escrowData.claimer, swapHash, hre.ethers.getAddress(escrowData.claimHandler), hre.ethers.getAddress(escrowData.refundHandler));
 
             //Ensure escrow committed
             const committedState = await contract.getHashState(swapHash);
