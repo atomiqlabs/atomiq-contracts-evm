@@ -152,7 +152,7 @@ contract SpvVaultManager is ISpvVaultManager, ISpvVaultManagerView {
         }
 
         //Emit event
-        emit Events.Fronted(Utils.packAddressAndVaultId(owner, vaultId), data.recipient, btcTxHash, data.executionHash, data.amount0, data.amount1);
+        emit Events.Fronted(Utils.packAddressAndVaultId(owner, vaultId), data.recipient, btcTxHash, msg.sender, data.executionHash, data.amount0, data.amount1);
     }
     
     //Claim funds from the vault, given a proper bitcoin transaction as verified through the relay contract
@@ -269,7 +269,7 @@ contract SpvVaultManager is ISpvVaultManager, ISpvVaultManagerView {
         }
 
         //Emit event
-        emit Events.Claimed(Utils.packAddressAndVaultId(owner, vaultId), recipient, btcTxHash, txData.executionHash, frontingAddress, withdrawCount, amount0Raw, amount1Raw);
+        emit Events.Claimed(Utils.packAddressAndVaultId(owner, vaultId), recipient, btcTxHash, msg.sender, txData.executionHash, frontingAddress, withdrawCount, amount0Raw, amount1Raw);
     }
 
     //Internal functions

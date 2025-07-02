@@ -654,6 +654,7 @@ describe("SpvVaultManager", function () {
                     packAddressAndVaultId(account1.address, vaultId),
                     account3.address,
                     btcTxHash,
+                    fronter.address,
                     executionHash,
                     amount0,
                     amount1
@@ -1206,6 +1207,7 @@ describe("SpvVaultManager", function () {
                     packAddressAndVaultId(account1.address, vaultId),
                     account3.address,
                     btcTx.getHash(),
+                    claimer.address,
                     executionHash ?? "0x0000000000000000000000000000000000000000000000000000000000000000",
                     "0x0000000000000000000000000000000000000000",
                     1n,
@@ -1354,6 +1356,7 @@ describe("SpvVaultManager", function () {
                     packAddressAndVaultId(account1.address, vaultId),
                     account3.address,
                     btcTx.getHash(),
+                    claimer.address,
                     executionHash ?? "0x0000000000000000000000000000000000000000000000000000000000000000",
                     fronter.address,
                     1n,
