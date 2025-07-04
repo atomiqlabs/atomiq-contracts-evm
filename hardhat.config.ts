@@ -1,3 +1,6 @@
+import * as dotenv from "dotenv";
+dotenv.config();
+
 import { HardhatUserConfig } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox";
 
@@ -16,6 +19,10 @@ const config: HardhatUserConfig = {
   networks: {
     hardhat: {
       hardfork: "cancun"
+    },
+    citreaTestnet: {
+      url: "https://rpc.testnet.citrea.xyz",
+      accounts: [process.env.DEPLOYER_PRIVATE_KEY]
     }
   },
   gasReporter: {

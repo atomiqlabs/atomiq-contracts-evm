@@ -54,3 +54,19 @@ Also supports scheduling of arbitrary contract call execution using execution co
 ## Tests
 
 In order to test the contracts simply run `npx hardhat test`, this will use hardhat to test all the contracts and libraries.
+
+## Deployment
+
+1. Configure the bitcoind RPC (btc relay will be initialized from this RPC), bitcoin network & deployer private key to use in `.env` (if no options provided mainnet will be use through Blast's public RPC). Use the following format
+
+```
+BITCOIN_NETWORK="TESTNET" # TESTNET, REGTEST or MAINNET
+
+BITCOIND_RPC="http://127.0.0.1:18332"
+BITCOIND_USERNAME="user"
+BITCOIND_PASSWORD="password"
+
+DEPLOYER_PRIVATE_KEY="0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
+```
+
+2. Run the deployment script: `npx hardhat run scripts/deploy.ts`

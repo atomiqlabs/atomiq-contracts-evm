@@ -1,6 +1,19 @@
-import { math } from "../../typechain-types/@openzeppelin/contracts/utils";
-
 const bitcoindRpc = process.env.BITCOIND_RPC ?? "https://bitcoin-mainnet.public.blastapi.io";
+let headers = {};
+if(process.env.BITCOIND_USERNAME || process.env.BITCOIND_PASSWORD) {
+    headers = {
+        Authorization: "Basic "+Buffer.from(process.env.BITCOIND_USERNAME + ":" + process.env.BITCOIND_PASSWORD).toString('base64')
+    }
+}
+
+export type BitcoindBlockchainInfo = {
+    chain: string,
+    blocks: number,
+    headers: number,
+    bestblockhash: string,
+    difficulty: number,
+    meantime: number
+};
 
 export type BitcoindTransactionIn = {
     txid: string,
@@ -83,9 +96,18 @@ export type BitcoindBlockheader = {
     nextblockhash: string
 }
 
+export async function getBlockchainInfo(): Promise<BitcoindBlockchainInfo> {
+    await new Promise(resolve => setTimeout(resolve, 100));
+    const res = await (await fetch(bitcoindRpc, {method: "POST", headers, body: JSON.stringify({
+        "jsonrpc":"1.0","id":0,"method":"getblockchaininfo","params":[]
+    })})).json();
+    if(res.result==null) throw new Error(JSON.stringify(res));
+    return res.result;
+}
+
 export async function getBlockhash(height: number): Promise<string> {
     await new Promise(resolve => setTimeout(resolve, 100));
-    const res = (await (await fetch(bitcoindRpc, {method: "POST", body: JSON.stringify({
+    const res = (await (await fetch(bitcoindRpc, {method: "POST", headers, body: JSON.stringify({
         "jsonrpc":"1.0","id":0,"method":"getblockhash","params":[height]
     })})).json());
     if(res.result==null) throw new Error(JSON.stringify(res));
@@ -95,7 +117,7 @@ export async function getBlockhash(height: number): Promise<string> {
 export async function getBlockheader(heightOrBlockhash: number | string): Promise<BitcoindBlockheader> {
     await new Promise(resolve => setTimeout(resolve, 100));
     const blockhash = typeof(heightOrBlockhash)==="string" ? heightOrBlockhash : await getBlockhash(heightOrBlockhash);
-    const res = (await (await fetch(bitcoindRpc, {method: "POST", body: JSON.stringify({
+    const res = (await (await fetch(bitcoindRpc, {method: "POST", headers, body: JSON.stringify({
         "jsonrpc":"1.0","id":0,"method":"getblockheader","params":[blockhash]
     })})).json());
     if(res.result==null) throw new Error(JSON.stringify(res));
@@ -105,7 +127,7 @@ export async function getBlockheader(heightOrBlockhash: number | string): Promis
 export async function getBlockWithTransactions(height: number): Promise<BitcoinBlockWithTransactions> {
     await new Promise(resolve => setTimeout(resolve, 100));
     const blockhash = await getBlockhash(height);
-    const res = (await (await fetch(bitcoindRpc, {method: "POST", body: JSON.stringify({
+    const res = (await (await fetch(bitcoindRpc, {method: "POST", headers, body: JSON.stringify({
         "jsonrpc":"1.0","id":0,"method":"getblock","params":[blockhash, 1]
     })})).json());
     if(res.result==null) throw new Error(JSON.stringify(res));
@@ -114,7 +136,7 @@ export async function getBlockWithTransactions(height: number): Promise<BitcoinB
 
 export async function getTransaction(txId: string): Promise<BitcoindTransaction> {
     await new Promise(resolve => setTimeout(resolve, 100));
-    const res = (await (await fetch(bitcoindRpc, {method: "POST", body: JSON.stringify({
+    const res = (await (await fetch(bitcoindRpc, {method: "POST", headers, body: JSON.stringify({
         "jsonrpc":"1.0","id":0,"method":"getrawtransaction","params":[txId, true]
     })})).json());
     if(res.result==null) throw new Error(JSON.stringify(res));
