@@ -33,7 +33,7 @@ describe("Executor", function () {
         const recipient = randomAddress();
 
         const promise = contract.execute("0x0000000000000000000000000000000000000000", 0n, {
-            gasLimit: 0n,
+            gasLimit: 100_000n,
             calls: [{
                 target: await dummyContract.getAddress(),
                 data,
@@ -55,7 +55,7 @@ describe("Executor", function () {
         const recipient = randomAddress();
 
         const promise = contract.execute("0x0000000000000000000000000000000000000000", 0n, {
-            gasLimit: 0n,
+            gasLimit: 100_000n,
             calls: [
                 {
                     target: await dummyContract.getAddress(),
@@ -102,7 +102,7 @@ describe("Executor", function () {
         const recipient = randomAddress();
 
         await expect(contract.execute("0x0000000000000000000000000000000000000000", 0n, {
-            gasLimit: 0n,
+            gasLimit: 100_000n,
             calls: [{
                 target: await dummyContract.getAddress(),
                 data,
@@ -110,6 +110,24 @@ describe("Executor", function () {
             }],
             drainTokens: []
         }, recipient)).to.emit(contract, "ExecutorWrapperEvent").withArgs(false, "0x08c379a00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000548656c6c6f000000000000000000000000000000000000000000000000000000");
+    });
+
+    it("Valid execute (0 gas limit)", async function () {
+        const {contract, dummyContract} = await loadFixture(deploy);
+
+        const {data} = await dummyContract.call.populateTransaction("0x01020304050402");
+        
+        const recipient = randomAddress();
+
+        await expect(contract.execute("0x0000000000000000000000000000000000000000", 0n, {
+            gasLimit: 0n,
+            calls: [{
+                target: await dummyContract.getAddress(),
+                data,
+                value: 0n
+            }],
+            drainTokens: []
+        }, recipient)).to.emit(contract, "ExecutorWrapperEvent").withArgs(false, "0x"+Buffer.from("_execute(): gasLimit is zero").toString("hex"));
     });
 
     it("Valid execute (erc-20)", async function () {
@@ -123,7 +141,7 @@ describe("Executor", function () {
         await erc20Contract1.transfer(await contract.getAddress(), 1000n);
 
         const promise = contract.execute(await erc20Contract1.getAddress(), 1000n, {
-            gasLimit: 0n,
+            gasLimit: 100_000n,
             calls: [{
                 target: await dummyContract.getAddress(),
                 data,
@@ -152,7 +170,7 @@ describe("Executor", function () {
         });
 
         const promise = contract.execute("0x0000000000000000000000000000000000000000", 1000n, {
-            gasLimit: 0n,
+            gasLimit: 100_000n,
             calls: [{
                 target: await dummyContract.getAddress(),
                 data,
@@ -181,7 +199,7 @@ describe("Executor", function () {
         });
 
         const promise = contract.execute("0x0000000000000000000000000000000000000000", 1000n, {
-            gasLimit: 0n,
+            gasLimit: 100_000n,
             calls: [{
                 target: await dummyContract.getAddress(),
                 data,
@@ -215,7 +233,7 @@ describe("Executor", function () {
         await erc20Contract2.transfer(await contract.getExecutionProxy(), 3000n);
 
         const promise = contract.execute("0x0000000000000000000000000000000000000000", 1000n, {
-            gasLimit: 0n,
+            gasLimit: 100_000n,
             calls: [{
                 target: await dummyContract.getAddress(),
                 data,
