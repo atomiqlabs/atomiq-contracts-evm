@@ -190,11 +190,11 @@ contract EscrowManager is EscrowStorage, LpVault, ReputationTracker, EIP712Sigha
     }
 
     //Internal functions
-    function _payOut(address src, address token, uint256 amount, bool payOut) internal {
+    function _payOut(address dst, address token, uint256 amount, bool payOut) internal {
         if(payOut) {
-            TransferUtils.transferOut(token, src, amount);
+            TransferUtils.transferOut(token, dst, amount);
         } else {
-            _LpVault_transferOut(token, src, amount);
+            _LpVault_transferOut(token, dst, amount);
         }
     }
 
