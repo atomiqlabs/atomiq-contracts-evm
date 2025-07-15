@@ -169,7 +169,7 @@ library StoredBlockHeaderImpl {
         uint256 newTarget = Nbits.toTarget(newNbits);
 
         //Skip difficulty adjustment enforcement on testnet!
-        // if(currBlockHeight % DIFFICULTY_ADJUSTMENT_INTERVAL == 0) {
+        if(currBlockHeight % DIFFICULTY_ADJUSTMENT_INTERVAL == 0) {
         //     //Compute new nbits, bitcoin uses the timestamp of the last block in the epoch to re-target PoW difficulty
         //     // https://github.com/bitcoin/bitcoin/blob/78dae8caccd82cfbfd76557f1fb7d7557c7b5edb/src/pow.cpp#L49
         //     uint256 computedNbits;
@@ -184,7 +184,8 @@ library StoredBlockHeaderImpl {
         //     // block in a new epoch is used as last_diff_adjustment, the time it takes to mine the first block
         //     // in every epoch is therefore not taken into consideration when retargetting PoW - one of many
         //     // bitcoin's quirks
-        //     _lastDiffAdjustment = currBlockTimestamp;
+            _lastDiffAdjustment = currBlockTimestamp;
+        }
         // } else {
         //     //nbits must be same as last block
         //     require(newNbits == header_nBitsLE(self), "updateChain: nbits");
