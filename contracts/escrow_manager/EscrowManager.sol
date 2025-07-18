@@ -129,7 +129,11 @@ contract EscrowManager is EscrowStorage, LpVault, ReputationTracker, EIP712Sigha
         require(escrow.successActionCommitment==successAction.hash(), "claim: invalid success action");
         bytes32 escrowHash = _claimWithoutPayout(escrow, witness);
 
-        //Execute through execution proxy instead of paying out
+        //Execute through execution proxy instead of paying out, should the success action fail,
+        // the funds are simply directly transfered to the user, this is done to make sure that a failing
+        // external contract call doesn't block the claimer from claiming the escrow funds, as this could
+        // lead to loss of funds of the claimer - i.e. offerer can eventually refund because the claimer is
+        // unable to claim
         (bool success, bytes memory errorResult) = _execute(escrow.token, escrow.amount, successAction, escrow.claimer);
         if(!success) emit Events.ExecutionError(escrowHash, errorResult);
     }
