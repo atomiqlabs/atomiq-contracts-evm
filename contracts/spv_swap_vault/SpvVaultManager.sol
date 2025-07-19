@@ -96,6 +96,8 @@ contract SpvVaultManager is ISpvVaultManager, ISpvVaultManagerView {
         emit Events.Opened(msg.sender, vaultId, utxoTxHash, utxoVout, vaultParams);
     }
 
+    //Deposits the tokens into an already opened vault, reverts if the vault is not opened,
+    // if the amounts provided overflows the vault amounts or if the deposit counter overflows
     function deposit(address owner, uint96 vaultId, SpvVaultParameters calldata vaultParams, uint64 rawToken0, uint64 rawToken1) external payable {
         SpvVaultState storage vault = _vaults[owner][vaultId];
         //Check vault is opened & valid params supplied
@@ -103,6 +105,7 @@ contract SpvVaultManager is ISpvVaultManager, ISpvVaultManagerView {
 
         //Update the state with newly deposited tokens
         (uint256 amount0, uint256 amount1) = vaultParams.fromRaw(rawToken0, rawToken1);
+        //This will revert if overflow happens in deposit token amounts or deposit counter
         uint32 depositCount = vault.deposit(rawToken0, rawToken1);
 
         //Transfer tokens in

@@ -65,6 +65,8 @@ library SpvVaultStateImpl {
         }
     }
 
+    //Updates the state with the withdrawn token amounts and new UTXO, THIS WILL NEVER REVERT, instead it returns
+    // the success=false and  
     function withdraw(SpvVaultState storage self, bytes32 btcTxHash, uint32 vout, uint64 rawAmount0, uint64 rawAmount1) internal returns (bool success, uint32 withdrawCount, string memory error) {
         uint256 value;
         uint64 _token0Amount;
@@ -108,6 +110,8 @@ library SpvVaultStateImpl {
         success = true;
     }
 
+    //Updates the state with the newly deposited tokens amount, this call (unlike withdraw) will revert on overflow of the amounts
+    // and the overflow of the deposit count, disallowing deposits that would overflow the amounts or deposit counter
     function deposit(SpvVaultState storage self, uint64 rawAmount0, uint64 rawAmount1) internal returns (uint32 depositCount) {
         uint256 value;
         uint64 _token0Amount;
