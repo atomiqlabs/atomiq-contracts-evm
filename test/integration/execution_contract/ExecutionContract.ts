@@ -3,7 +3,7 @@ import {
 } from "@nomicfoundation/hardhat-toolbox/network-helpers";
 import { assert, expect } from "chai";
 import hre from "hardhat";
-import { randomAddress, randomBytes32 } from "../../utils/evm/utils";
+import { getExecutionSalt, randomAddress, randomBytes32 } from "../../utils/evm/utils";
 import { TestERC20 } from "../../../typechain-types";
 import { ExecutionAction, getExecutionActionHash } from "../../utils/evm/execution_action";
 import { Execution, getExecutionHash } from "../../utils/evm/execution";
@@ -22,14 +22,14 @@ describe("ExecutionContract", function () {
 
         const [account1, account2] = await hre.ethers.getSigners();
 
-        async function create(owner: string, salt: string, execution: Execution) {
+        async function create(owner: string, creatorSalt: string, execution: Execution) {
             let value: bigint;
             if(execution.token==="0x0000000000000000000000000000000000000000") {
                 value = execution.amount + execution.executionFee;
             } else {
                 await (ERC20.attach(execution.token) as TestERC20).approve(await contract.getAddress(), execution.amount + execution.executionFee);
             }
-            await contract.create(owner, salt, execution, {value});
+            await contract.create(owner, creatorSalt, execution, {value});
         }
 
         return {contract, dummyContract, erc20Contract1, erc20Contract2, account1, account2, create};
@@ -38,7 +38,8 @@ describe("ExecutionContract", function () {
     it("Valid create (erc-20)", async function () {
         const {contract, account1, account2, erc20Contract1} = await loadFixture(deploy);
 
-        const salt = randomBytes32();
+        const creatorSalt = randomBytes32();
+        const salt = getExecutionSalt(account1.address, creatorSalt);
         const execution = {
             token: await erc20Contract1.getAddress(),
             executionActionHash: randomBytes32(),
@@ -51,7 +52,7 @@ describe("ExecutionContract", function () {
         await erc20Contract1.approve(await contract.getAddress(), 1500n);
         //Ensure event is emitted
         await expect(
-            contract.create(account2.address, salt, execution)
+            contract.create(account2.address, creatorSalt, execution)
         ).to.emit(contract, "ExecutionCreated").withArgs(account2.address, salt, executionHash);
 
         //Ensure the commitment is created
@@ -64,7 +65,8 @@ describe("ExecutionContract", function () {
     it("Invalid create (erc-20 not enough balance)", async function () {
         const {contract, account1, account2, erc20Contract1} = await loadFixture(deploy);
 
-        const salt = randomBytes32();
+        const creatorSalt = randomBytes32();
+        const salt = getExecutionSalt(account2.address, creatorSalt);
         const execution = {
             token: await erc20Contract1.getAddress(),
             executionActionHash: randomBytes32(),
@@ -79,14 +81,14 @@ describe("ExecutionContract", function () {
         await erc20Contract1.connect(account2).approve(await contract.getAddress(), 1500n);
         //Ensure event is emitted
         await expect(
-            contract.connect(account2).create(account2.address, salt, execution)
+            contract.connect(account2).create(account2.address, creatorSalt, execution)
         ).to.be.revertedWithCustomError(erc20Contract1, "ERC20InsufficientBalance");
     });
 
     it("Invalid create (erc-20 not enough allowance)", async function () {
         const {contract, account1, account2, erc20Contract1} = await loadFixture(deploy);
 
-        const salt = randomBytes32();
+        const creatorSalt = randomBytes32();
         const execution = {
             token: await erc20Contract1.getAddress(),
             executionActionHash: randomBytes32(),
@@ -99,14 +101,15 @@ describe("ExecutionContract", function () {
         await erc20Contract1.approve(await contract.getAddress(), 1000n); //Approve too little
         //Ensure event is emitted
         await expect(
-            contract.create(account2.address, salt, execution)
+            contract.create(account2.address, creatorSalt, execution)
         ).to.be.revertedWithCustomError(erc20Contract1, "ERC20InsufficientAllowance");
     });
 
     it("Valid create (native token)", async function () {
         const {contract, account1, account2, erc20Contract1} = await loadFixture(deploy);
 
-        const salt = randomBytes32();
+        const creatorSalt = randomBytes32();
+        const salt = getExecutionSalt(account1.address, creatorSalt);
         const execution = {
             token: "0x0000000000000000000000000000000000000000",
             executionActionHash: randomBytes32(),
@@ -118,7 +121,7 @@ describe("ExecutionContract", function () {
 
         //Ensure event is emitted
         await expect(
-            contract.create(account2.address, salt, execution, {value: 1500n})
+            contract.create(account2.address, creatorSalt, execution, {value: 1500n})
         ).to.emit(contract, "ExecutionCreated").withArgs(account2.address, salt, executionHash);
 
         //Ensure the commitment is created
@@ -131,7 +134,8 @@ describe("ExecutionContract", function () {
     it("Invalid create (native token invalid msg.value)", async function () {
         const {contract, account1, account2, erc20Contract1} = await loadFixture(deploy);
 
-        const salt = randomBytes32();
+        const creatorSalt = randomBytes32();
+        const salt = getExecutionSalt(account1.address, creatorSalt);
         const execution = {
             token: "0x0000000000000000000000000000000000000000",
             executionActionHash: randomBytes32(),
@@ -143,14 +147,15 @@ describe("ExecutionContract", function () {
 
         //Ensure event is emitted
         await expect(
-            contract.create(account2.address, salt, execution, {value: 1000n}) //Not enough value sent
+            contract.create(account2.address, creatorSalt, execution, {value: 1000n}) //Not enough value sent
         ).to.be.revertedWith("transferIn: value too low");
     });
 
     it("Invalid create twice the same execution", async function () {
         const {contract, account1, account2, erc20Contract1} = await loadFixture(deploy);
 
-        const salt = randomBytes32();
+        const creatorSalt = randomBytes32();
+        const salt = getExecutionSalt(account1.address, creatorSalt);
         const execution = {
             token: "0x0000000000000000000000000000000000000000",
             executionActionHash: randomBytes32(),
@@ -160,16 +165,17 @@ describe("ExecutionContract", function () {
         };
         const executionHash = getExecutionHash(execution);
 
-        await contract.create(account2.address, salt, execution, {value: 1500n});
+        await contract.create(account2.address, creatorSalt, execution, {value: 1500n});
         await expect(
-            contract.create(account2.address, salt, execution, {value: 1500n})
+            contract.create(account2.address, creatorSalt, execution, {value: 1500n})
         ).to.be.revertedWith("create: Already initiated");
     });
 
     it("Valid refund expired", async function () {
         const {contract, account1, account2, erc20Contract1, create} = await loadFixture(deploy);
 
-        const salt = randomBytes32();
+        const creatorSalt = randomBytes32();
+        const salt = getExecutionSalt(account1.address, creatorSalt);
         const execution = {
             token: await erc20Contract1.getAddress(),
             executionActionHash: randomBytes32(),
@@ -178,7 +184,7 @@ describe("ExecutionContract", function () {
             expiry: 0n //Already expired
         };
         const executionHash = getExecutionHash(execution);
-        await create(account2.address, salt, execution);
+        await create(account2.address, creatorSalt, execution);
 
         const account1PreBalance = await erc20Contract1.balanceOf(account1.address);
 
@@ -198,7 +204,8 @@ describe("ExecutionContract", function () {
     it("Invalid refund expired, not initiated", async function () {
         const {contract, account1, account2, erc20Contract1, create} = await loadFixture(deploy);
 
-        const salt = randomBytes32();
+        const creatorSalt = randomBytes32();
+        const salt = getExecutionSalt(account1.address, creatorSalt);
         const execution = {
             token: await erc20Contract1.getAddress(),
             executionActionHash: randomBytes32(),
@@ -207,7 +214,7 @@ describe("ExecutionContract", function () {
             expiry: 0n //Already expired
         };
         const executionHash = getExecutionHash(execution);
-        // await create(account2.address, salt, execution); //Don't initiate
+        // await create(account2.address, creatorSalt, execution); //Don't initiate
 
         await expect(
             contract.refundExpired(account2.address, salt, execution)
@@ -217,7 +224,8 @@ describe("ExecutionContract", function () {
     it("Invalid refund expired, not expired", async function () {
         const {contract, account1, account2, erc20Contract1, create} = await loadFixture(deploy);
 
-        const salt = randomBytes32();
+        const creatorSalt = randomBytes32();
+        const salt = getExecutionSalt(account1.address, creatorSalt);
         const execution = {
             token: await erc20Contract1.getAddress(),
             executionActionHash: randomBytes32(),
@@ -226,7 +234,7 @@ describe("ExecutionContract", function () {
             expiry: 0xffffffffn //Not expired
         };
 
-        await create(account2.address, salt, execution);
+        await create(account2.address, creatorSalt, execution);
 
         await expect(
             contract.refundExpired(account2.address, salt, execution)
@@ -236,7 +244,8 @@ describe("ExecutionContract", function () {
     it("Invalid refund expired, already processed", async function () {
         const {contract, account1, account2, erc20Contract1, create} = await loadFixture(deploy);
 
-        const salt = randomBytes32();
+        const creatorSalt = randomBytes32();
+        const salt = getExecutionSalt(account1.address, creatorSalt);
         const execution = {
             token: await erc20Contract1.getAddress(),
             executionActionHash: randomBytes32(),
@@ -245,7 +254,7 @@ describe("ExecutionContract", function () {
             expiry: 0n //Expired
         };
         
-        await create(account2.address, salt, execution);
+        await create(account2.address, creatorSalt, execution);
         await contract.refundExpired(account2.address, salt, execution); //First refund should work
         await expect(
             contract.refundExpired(account2.address, salt, execution) //Second refund should revert
@@ -255,7 +264,8 @@ describe("ExecutionContract", function () {
     it("Valid refund by owner", async function () {
         const {contract, account1, account2, erc20Contract1, create} = await loadFixture(deploy);
 
-        const salt = randomBytes32();
+        const creatorSalt = randomBytes32();
+        const salt = getExecutionSalt(account1.address, creatorSalt);
         const execution = {
             token: await erc20Contract1.getAddress(),
             executionActionHash: randomBytes32(),
@@ -264,7 +274,7 @@ describe("ExecutionContract", function () {
             expiry: 0n //Already expired
         };
         const executionHash = getExecutionHash(execution);
-        await create(account2.address, salt, execution);
+        await create(account2.address, creatorSalt, execution);
 
         await expect(
             contract.connect(account2).refund(salt, execution)
@@ -280,7 +290,8 @@ describe("ExecutionContract", function () {
     it("Valid refund by owner (even though not expired yet)", async function () {
         const {contract, account1, account2, erc20Contract1, create} = await loadFixture(deploy);
 
-        const salt = randomBytes32();
+        const creatorSalt = randomBytes32();
+        const salt = getExecutionSalt(account1.address, creatorSalt);
         const execution = {
             token: await erc20Contract1.getAddress(),
             executionActionHash: randomBytes32(),
@@ -289,7 +300,7 @@ describe("ExecutionContract", function () {
             expiry: 0xffffffffn //Not expired yet
         };
         const executionHash = getExecutionHash(execution);
-        await create(account2.address, salt, execution);
+        await create(account2.address, creatorSalt, execution);
 
         await expect(
             contract.connect(account2).refund(salt, execution)
@@ -305,7 +316,8 @@ describe("ExecutionContract", function () {
     it("Invalid refund by owner, caller not owner", async function () {
         const {contract, account1, account2, erc20Contract1, create} = await loadFixture(deploy);
 
-        const salt = randomBytes32();
+        const creatorSalt = randomBytes32();
+        const salt = getExecutionSalt(account1.address, creatorSalt);
         const execution = {
             token: await erc20Contract1.getAddress(),
             executionActionHash: randomBytes32(),
@@ -313,7 +325,7 @@ describe("ExecutionContract", function () {
             executionFee: 500n,
             expiry: 0n //Already expired
         };
-        await create(account2.address, salt, execution);
+        await create(account2.address, creatorSalt, execution);
 
         await expect(
             contract.refund(salt, execution)
@@ -323,7 +335,8 @@ describe("ExecutionContract", function () {
     it("Invalid refund by owner, not initiated", async function () {
         const {contract, account1, account2, erc20Contract1, create} = await loadFixture(deploy);
 
-        const salt = randomBytes32();
+        const creatorSalt = randomBytes32();
+        const salt = getExecutionSalt(account1.address, creatorSalt);
         const execution = {
             token: await erc20Contract1.getAddress(),
             executionActionHash: randomBytes32(),
@@ -331,7 +344,7 @@ describe("ExecutionContract", function () {
             executionFee: 500n,
             expiry: 0n //Already expired
         };
-        // await create(account2.address, salt, execution); //Don't initiate
+        // await create(account2.address, creatorSalt, execution); //Don't initiate
 
         await expect(
             contract.connect(account2).refund(salt, execution)
@@ -341,7 +354,8 @@ describe("ExecutionContract", function () {
     it("Invalid refund by owner, try to refund twice", async function () {
         const {contract, account1, account2, erc20Contract1, create} = await loadFixture(deploy);
 
-        const salt = randomBytes32();
+        const creatorSalt = randomBytes32();
+        const salt = getExecutionSalt(account1.address, creatorSalt);
         const execution = {
             token: await erc20Contract1.getAddress(),
             executionActionHash: randomBytes32(),
@@ -349,7 +363,7 @@ describe("ExecutionContract", function () {
             executionFee: 500n,
             expiry: 0n //Already expired
         };
-        await create(account2.address, salt, execution);
+        await create(account2.address, creatorSalt, execution);
         await contract.connect(account2).refund(salt, execution); //First refund
         await expect(
             contract.connect(account2).refund(salt, execution) //Second refund should revert
@@ -366,7 +380,8 @@ describe("ExecutionContract", function () {
         };
         const executionActionHash = getExecutionActionHash(executionAction);
 
-        const salt = randomBytes32();
+        const creatorSalt = randomBytes32();
+        const salt = getExecutionSalt(account1.address, creatorSalt);
         const execution = {
             token: await erc20Contract1.getAddress(),
             executionActionHash: executionActionHash,
@@ -375,7 +390,7 @@ describe("ExecutionContract", function () {
             expiry: 0n //Already expired
         };
         const executionHash = getExecutionHash(execution);
-        await create(account2.address, salt, execution);
+        await create(account2.address, creatorSalt, execution);
 
         const account1PreBalance = await erc20Contract1.balanceOf(account1.address);
 
@@ -416,7 +431,8 @@ describe("ExecutionContract", function () {
         };
         const executionActionHash = getExecutionActionHash(executionAction);
 
-        const salt = randomBytes32();
+        const creatorSalt = randomBytes32();
+        const salt = getExecutionSalt(account1.address, creatorSalt);
         const execution = {
             token: await erc20Contract1.getAddress(),
             executionActionHash: executionActionHash,
@@ -425,7 +441,7 @@ describe("ExecutionContract", function () {
             expiry: 0n //Already expired
         };
         const executionHash = getExecutionHash(execution);
-        await create(account2.address, salt, execution);
+        await create(account2.address, creatorSalt, execution);
 
         const account1PreBalance = await erc20Contract1.balanceOf(account1.address);
 
@@ -468,7 +484,8 @@ describe("ExecutionContract", function () {
         };
         const executionActionHash = getExecutionActionHash(executionAction);
 
-        const salt = randomBytes32();
+        const creatorSalt = randomBytes32();
+        const salt = getExecutionSalt(account1.address, creatorSalt);
         const execution = {
             token: "0x0000000000000000000000000000000000000000",
             executionActionHash: executionActionHash,
@@ -477,7 +494,7 @@ describe("ExecutionContract", function () {
             expiry: 0n //Already expired
         };
         const executionHash = getExecutionHash(execution);
-        await create(account2.address, salt, execution);
+        await create(account2.address, creatorSalt, execution);
 
         const account2PreNativeBalance = await account1.provider.getBalance(account2.address);
 
@@ -512,7 +529,8 @@ describe("ExecutionContract", function () {
         };
         const executionActionHash = getExecutionActionHash(executionAction);
 
-        const salt = randomBytes32();
+        const creatorSalt = randomBytes32();
+        const salt = getExecutionSalt(account1.address, creatorSalt);
         const execution = {
             token: await erc20Contract1.getAddress(),
             executionActionHash: executionActionHash,
@@ -521,7 +539,7 @@ describe("ExecutionContract", function () {
             expiry: 0n //Already expired
         };
         const executionHash = getExecutionHash(execution);
-        await create(account2.address, salt, execution);
+        await create(account2.address, creatorSalt, execution);
 
         const account1PreBalance = await erc20Contract1.balanceOf(account1.address);
 
@@ -556,7 +574,8 @@ describe("ExecutionContract", function () {
         };
         const executionActionHash = getExecutionActionHash(executionAction);
 
-        const salt = randomBytes32();
+        const creatorSalt = randomBytes32();
+        const salt = getExecutionSalt(account1.address, creatorSalt);
         const execution = {
             token: await erc20Contract1.getAddress(),
             executionActionHash: executionActionHash,
@@ -565,7 +584,7 @@ describe("ExecutionContract", function () {
             expiry: 0n //Already expired
         };
         const executionHash = getExecutionHash(execution);
-        await create(account2.address, salt, execution);
+        await create(account2.address, creatorSalt, execution);
 
         const account1PreBalance = await erc20Contract1.balanceOf(account1.address);
 
@@ -599,7 +618,8 @@ describe("ExecutionContract", function () {
         };
         const executionActionHash = getExecutionActionHash(executionAction);
 
-        const salt = randomBytes32();
+        const creatorSalt = randomBytes32();
+        const salt = getExecutionSalt(account1.address, creatorSalt);
         const execution = {
             token: await erc20Contract1.getAddress(),
             executionActionHash: executionActionHash,
@@ -608,7 +628,7 @@ describe("ExecutionContract", function () {
             expiry: 0n //Already expired
         };
         const executionHash = getExecutionHash(execution);
-        await create(account2.address, salt, execution);
+        await create(account2.address, creatorSalt, execution);
 
         const account1PreBalance = await erc20Contract1.balanceOf(account1.address);
 
@@ -642,7 +662,8 @@ describe("ExecutionContract", function () {
         };
         const executionActionHash = getExecutionActionHash(executionAction);
 
-        const salt = randomBytes32();
+        const creatorSalt = randomBytes32();
+        const salt = getExecutionSalt(account1.address, creatorSalt);
         const execution = {
             token: await erc20Contract1.getAddress(),
             executionActionHash: executionActionHash,
@@ -651,7 +672,7 @@ describe("ExecutionContract", function () {
             expiry: 0n //Already expired
         };
         const executionHash = getExecutionHash(execution);
-        await create(account2.address, salt, execution);
+        await create(account2.address, creatorSalt, execution);
 
         const account1PreBalance = await erc20Contract1.balanceOf(account1.address);
         const account2PreNativeBalance = await account1.provider.getBalance(account2.address);
@@ -693,7 +714,8 @@ describe("ExecutionContract", function () {
         };
         const executionActionHash = getExecutionActionHash(executionAction);
 
-        const salt = randomBytes32();
+        const creatorSalt = randomBytes32();
+        const salt = getExecutionSalt(account1.address, creatorSalt);
         const execution = {
             token: await erc20Contract1.getAddress(),
             executionActionHash: executionActionHash,
@@ -702,7 +724,7 @@ describe("ExecutionContract", function () {
             expiry: 0n //Already expired
         };
         const executionHash = getExecutionHash(execution);
-        await create(account2.address, salt, execution);
+        await create(account2.address, creatorSalt, execution);
 
         const account1PreBalance = await erc20Contract1.balanceOf(account1.address);
         const account2PreNativeBalance = await account1.provider.getBalance(account2.address);
@@ -726,7 +748,7 @@ describe("ExecutionContract", function () {
     });
 
     it("Invalid execute, wrong success action provided", async function () {
-        const {contract, account2, erc20Contract1, create} = await loadFixture(deploy);
+        const {contract, account1, account2, erc20Contract1, create} = await loadFixture(deploy);
 
         const executionAction: ExecutionAction = {
             gasLimit: 5000n,
@@ -735,7 +757,8 @@ describe("ExecutionContract", function () {
         };
         const executionActionHash = getExecutionActionHash(executionAction);
 
-        const salt = randomBytes32();
+        const creatorSalt = randomBytes32();
+        const salt = getExecutionSalt(account1.address, creatorSalt);
         const execution = {
             token: await erc20Contract1.getAddress(),
             executionActionHash: randomBytes32(), //Invalid random execution action hash
@@ -743,7 +766,7 @@ describe("ExecutionContract", function () {
             executionFee: 500n,
             expiry: 0n //Already expired
         };
-        await create(account2.address, salt, execution);
+        await create(account2.address, creatorSalt, execution);
 
         await expect(
             contract.execute(account2.address, salt, execution, executionAction)
@@ -751,7 +774,7 @@ describe("ExecutionContract", function () {
     });
 
     it("Invalid execute, not scheduled", async function () {
-        const {contract, account2, erc20Contract1, create} = await loadFixture(deploy);
+        const {contract, account1, account2, erc20Contract1, create} = await loadFixture(deploy);
 
         const executionAction: ExecutionAction = {
             gasLimit: 5000n,
@@ -760,7 +783,8 @@ describe("ExecutionContract", function () {
         };
         const executionActionHash = getExecutionActionHash(executionAction);
 
-        const salt = randomBytes32();
+        const creatorSalt = randomBytes32();
+        const salt = getExecutionSalt(account1.address, creatorSalt);
         const execution = {
             token: await erc20Contract1.getAddress(),
             executionActionHash: executionActionHash,
@@ -768,7 +792,7 @@ describe("ExecutionContract", function () {
             executionFee: 500n,
             expiry: 0n //Already expired
         };
-        // await create(account2.address, salt, execution); //Don't call create before
+        // await create(account2.address, creatorSalt, execution); //Don't call create before
 
         await expect(
             contract.execute(account2.address, salt, execution, executionAction)
@@ -776,7 +800,7 @@ describe("ExecutionContract", function () {
     });
 
     it("Invalid execute, try execute twice", async function () {
-        const {contract, account2, erc20Contract1, create} = await loadFixture(deploy);
+        const {contract, account1, account2, erc20Contract1, create} = await loadFixture(deploy);
 
         const executionAction: ExecutionAction = {
             gasLimit: 5000n,
@@ -785,7 +809,8 @@ describe("ExecutionContract", function () {
         };
         const executionActionHash = getExecutionActionHash(executionAction);
 
-        const salt = randomBytes32();
+        const creatorSalt = randomBytes32();
+        const salt = getExecutionSalt(account1.address, creatorSalt);
         const execution = {
             token: await erc20Contract1.getAddress(),
             executionActionHash: executionActionHash,
@@ -793,7 +818,7 @@ describe("ExecutionContract", function () {
             executionFee: 500n,
             expiry: 0n //Already expired
         };
-        await create(account2.address, salt, execution);
+        await create(account2.address, creatorSalt, execution);
         await contract.execute(account2.address, salt, execution, executionAction); //First call should succeed
 
         await expect(

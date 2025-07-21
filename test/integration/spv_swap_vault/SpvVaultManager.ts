@@ -6,7 +6,7 @@ import hre from "hardhat";
 import {HardhatEthersSigner} from "@nomicfoundation/hardhat-ethers/signers";
 import { EscrowDataType, getEscrowHash, getRandomEscrowData } from "../../utils/evm/escrow_data";
 import { contracts, TestERC20 } from "../../../typechain-types";
-import { packAddressAndVaultId, randomAddress, randomBytes32, structToArray } from "../../utils/evm/utils";
+import { getExecutionSalt, packAddressAndVaultId, randomAddress, randomBytes32, structToArray } from "../../utils/evm/utils";
 import { randomUnsigned, randomUnsignedBigInt } from "../../utils/random";
 import { ExecutionAction, getExecutionActionHash } from "../../utils/evm/execution_action";
 import {randomBytes} from "crypto";
@@ -667,7 +667,7 @@ describe("SpvVaultManager", function () {
 
                 assert.strictEqual(await contract.getFronterAddress(account1.address, vaultId, btcTxHash, btcTxData), fronter.address);
                 assert.strictEqual(await contract.getFronterById(account1.address, vaultId, getBitcoinVaultTransactionDataHash(btcTxData, btcTxHash)), fronter.address);
-                if(usesExecution) assert.strictEqual(await executionContract.getExecutionCommitmentHash(account3.address, btcTxHash), getExecutionHash({
+                if(usesExecution) assert.strictEqual(await executionContract.getExecutionCommitmentHash(account3.address, getExecutionSalt(await contract.getAddress(), btcTxHash)), getExecutionHash({
                     executionActionHash: executionHash,
                     executionFee: btcTxData.executionHandlerFeeAmount0 * vaultParams.token0Multiplier,
                     token: vaultParams.token0,
@@ -1230,7 +1230,7 @@ describe("SpvVaultManager", function () {
                     preBalances[claimer.address]["0x0000000000000000000000000000000000000000"] -= receipt.gasUsed * receipt.gasPrice;
                 }
 
-                if(usesExecution) assert.strictEqual(await executionContract.getExecutionCommitmentHash(account3.address, btcTx.getHash()), getExecutionHash({
+                if(usesExecution) assert.strictEqual(await executionContract.getExecutionCommitmentHash(account3.address, getExecutionSalt(await contract.getAddress(), btcTx.getHash())), getExecutionHash({
                     executionActionHash: executionHash,
                     executionFee: vaultTransactionData.executionHandlerFeeAmount0 * vaultParams.token0Multiplier,
                     token: vaultParams.token0,
@@ -1325,7 +1325,7 @@ describe("SpvVaultManager", function () {
 
                 await front(fronter, account1.address, vaultId, vaultParams, vaultTransactionData, btcTx.getHash());
 
-                if(usesExecution) assert.strictEqual(await executionContract.getExecutionCommitmentHash(account3.address, btcTx.getHash()), getExecutionHash({
+                if(usesExecution) assert.strictEqual(await executionContract.getExecutionCommitmentHash(account3.address, getExecutionSalt(await contract.getAddress(), btcTx.getHash())), getExecutionHash({
                     executionActionHash: executionHash,
                     executionFee: vaultTransactionData.executionHandlerFeeAmount0 * vaultParams.token0Multiplier,
                     token: vaultParams.token0,

@@ -11,4 +11,8 @@ contract ExecutionContractWrapper is ExecutionContract {
         return address(executionProxy);
     }
 
+    function getSalt(bytes32 creatorSalt) view external returns (bytes32) {
+        return _getSalt(creatorSalt);
+    }
+
 }
