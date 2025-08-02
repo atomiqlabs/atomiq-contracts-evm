@@ -87,7 +87,7 @@ contract EscrowManager is EscrowStorage, LpVault, ReputationTracker, EIP712Sigha
         }
 
         //Emit event
-        emit Events.Initialize(escrow.offerer, escrow.claimer, escrowHash);
+        emit Events.Initialize(escrow.offerer, escrow.claimer, escrowHash, escrow.claimHandler, escrow.refundHandler);
     }
 
     //Shared between claim & claim with success action
