@@ -9,6 +9,8 @@ library TransferUtils {
     using SafeERC20 for IERC20;
 
     //Transfer ERC20 tokens or native token to the current contract using transfer_from function
+    //If native token transfer is used the src address needs to be the address of the transaction sender,
+    // since the msg.value is checked
     //NOTE: Extra care needs to be taken to not call this function multiple times with native token address (0x0),
     // since this only checks msg.value and there is no way to decrement it during runtime
     function transferIn(address token, address src, uint256 amount) internal {

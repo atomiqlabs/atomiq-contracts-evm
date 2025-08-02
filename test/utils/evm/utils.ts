@@ -1,5 +1,6 @@
 import {randomBytes} from "crypto";
 import { toBuffer } from "../buffer_utils";
+import { ethers } from "hardhat";
 
 export function randomAddress(): string {
     return "0x"+randomBytes(20).toString("hex");
@@ -22,4 +23,8 @@ export function packAddressAndVaultId(address: string, vaultId: bigint): string 
         Buffer.from(address.substring(2), "hex"),
         toBuffer(vaultId, 12, "be")
     ]).toString("hex");
+}
+
+export function getExecutionSalt(address: string, creatorSalt: string | Buffer): string {
+    return ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(["address", "bytes32"], [address, creatorSalt]));
 }

@@ -10,7 +10,7 @@ import {Executor} from "../execution_proxy/Executor.sol";
 
 interface IExecutionContract {
     //Creates a new execution
-    function create(address owner, bytes32 salt, Execution calldata execution) external payable;
+    function create(address owner, bytes32 creatorSalt, Execution calldata execution) external payable;
 
     //Execute calls on behalf of owner
     function execute(address owner, bytes32 salt, Execution calldata execution, ExecutionAction calldata executionAction) external;
@@ -32,7 +32,12 @@ contract ExecutionContract is Executor, IExecutionContract, IExecutionContractVi
     //Stores hash commitments of the scheduled executions
     mapping(address => mapping(bytes32 => bytes32)) _executionCommitments;
 
-    function create(address owner, bytes32 salt, Execution calldata execution) external payable {
+    function create(address owner, bytes32 creatorSalt, Execution calldata execution) external payable {
+        //Compute the actual salt from the sender address and provided creator_salt,
+        // this ensures that no one else can try to front-run the execution creation
+        // and block the actual execution from being created
+        bytes32 salt = _getSalt(creatorSalt);
+
         //Make sure execution not yet initialized
         require(_executionCommitments[owner][salt]==bytes32(0x0), "create: Already initiated");
 
@@ -107,6 +112,17 @@ contract ExecutionContract is Executor, IExecutionContract, IExecutionContractVi
 
     function getExecutionCommitmentHash(address owner, bytes32 salt) external view returns (bytes32) {
         return _executionCommitments[owner][salt];
+    }
+
+    //Computes salt based on the creator-provided salt and caller address (msg.sender)
+    function _getSalt(bytes32 creatorSalt) internal view returns (bytes32 salt) {
+        //The following assembly block is the equivalent to:
+        // salt = keccak256(abi.encode(msg.sender, creatorSalt));
+        assembly ("memory-safe") {
+            mstore(0, caller())
+            mstore(32, creatorSalt)
+            salt := keccak256(0, 64)
+        }
     }
 
 }

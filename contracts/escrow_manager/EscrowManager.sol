@@ -40,6 +40,9 @@ contract EscrowManager is EscrowStorage, LpVault, ReputationTracker, EIP712Sigha
 
     //_extraData parameter is used for data-availability/propagation of escrow-specific extraneous data on-chain
     // and is therefore unused in the function itself
+    //Initiating the escrow with payIn=true as claimer with native token (0x0), will always fail, because
+    // we cannot use transferFrom for native token, therefore we require the offerer to initialize the
+    // escrow and deposit native tokens with msg.value
     function initialize(EscrowData calldata escrow, bytes calldata signature, uint256 timeout, bytes memory _extraData) external payable {
         //Check expiry
         require(block.timestamp < timeout, "init: Authorization expired");
@@ -126,7 +129,11 @@ contract EscrowManager is EscrowStorage, LpVault, ReputationTracker, EIP712Sigha
         require(escrow.successActionCommitment==successAction.hash(), "claim: invalid success action");
         bytes32 escrowHash = _claimWithoutPayout(escrow, witness);
 
-        //Execute through execution proxy instead of paying out
+        //Execute through execution proxy instead of paying out, should the success action fail,
+        // the funds are simply directly transfered to the user, this is done to make sure that a failing
+        // external contract call doesn't block the claimer from claiming the escrow funds, as this could
+        // lead to loss of funds of the claimer - i.e. offerer can eventually refund because the claimer is
+        // unable to claim
         (bool success, bytes memory errorResult) = _execute(escrow.token, escrow.amount, successAction, escrow.claimer);
         if(!success) emit Events.ExecutionError(escrowHash, errorResult);
     }
@@ -190,14 +197,16 @@ contract EscrowManager is EscrowStorage, LpVault, ReputationTracker, EIP712Sigha
     }
 
     //Internal functions
-    function _payOut(address src, address token, uint256 amount, bool payOut) internal {
+    function _payOut(address dst, address token, uint256 amount, bool payOut) internal {
         if(payOut) {
-            TransferUtils.transferOut(token, src, amount);
+            TransferUtils.transferOut(token, dst, amount);
         } else {
-            _LpVault_transferOut(token, src, amount);
+            _LpVault_transferOut(token, dst, amount);
         }
     }
 
+    //For case where payIn=true and native token transfer is requested (token adddress 0x0)
+    // the src address needs to be the address of the transaction sender, since the msg.value is checked
     function _payIn(address src, address token, uint256 amount, bool payIn) internal {
         if(payIn) {
             TransferUtils.transferIn(token, src, amount);
