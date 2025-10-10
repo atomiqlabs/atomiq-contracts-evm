@@ -14,7 +14,7 @@ interface IReputationTracker {
     function getReputation(ReputationQuery[] calldata data) external view returns (ReputationState[3][] memory result);
 }
 
-contract ReputationTracker is IReputationTracker {
+abstract contract ReputationTracker is IReputationTracker {
 
     uint256 internal constant REPUTATION_SUCCESS = 0;
     uint256 internal constant REPUTATION_COOP_REFUND = 1;

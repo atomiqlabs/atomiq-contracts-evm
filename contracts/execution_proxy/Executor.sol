@@ -5,7 +5,7 @@ import {TransferUtils} from "../transfer_utils/TransferUtils.sol";
 import {ExecutionProxy} from "./ExecutionProxy.sol";
 import {ExecutionAction, ExecutionActionImpl} from "./structs/ExecutionAction.sol";
 
-contract Executor {
+abstract contract Executor {
 
     ExecutionProxy immutable executionProxy;
 

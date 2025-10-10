@@ -10,7 +10,7 @@ interface IEscrowStorageView {
     function getHashStateMultiple(bytes32[] calldata escrowHash) external view returns (EscrowState[] memory result);
 }
 
-contract EscrowStorage is IEscrowStorageView {
+abstract contract EscrowStorage is IEscrowStorageView {
     uint8 internal constant STATE_NOT_COMMITTED = 0;
     uint8 internal constant STATE_COMMITTED = 1;
     uint8 internal constant STATE_CLAIMED = 2;

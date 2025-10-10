@@ -17,7 +17,7 @@ interface ILpVault {
     function getBalance(LpVaultBalanceQuery[] calldata data) external view returns (uint256[] memory balances);
 }
 
-contract LpVault is ILpVault {
+abstract contract LpVault is ILpVault {
 
     mapping(address => mapping(address => uint256)) _lpVault;
 

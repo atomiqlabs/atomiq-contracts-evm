@@ -4,7 +4,7 @@ pragma solidity ^0.8.28;
 import {EscrowData, EscrowDataImpl} from "../structs/Escrow.sol";
 import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 
-contract EIP712Sighash is EIP712 {
+abstract contract EIP712Sighash is EIP712 {
 
     using EscrowDataImpl for EscrowData;
     
