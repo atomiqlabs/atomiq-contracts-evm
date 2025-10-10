@@ -47,6 +47,7 @@ async function main() {
     await btcRelayContract.waitForDeployment();
     console.log("\n--- BtcRelay")
     console.log(`Contract address: ${await btcRelayContract.getAddress()}`);
+    console.log(`Genesis height: ${(await ethers.provider.getTransactionReceipt(btcRelayContract.deploymentTransaction().hash)).blockNumber}`);
 
     //Deploy execution contract
     console.log("\n- Deploying execution contract");
@@ -55,6 +56,7 @@ async function main() {
     await executionContract.waitForDeployment();
     console.log("\n--- ExecutionContract")
     console.log(`Contract address: ${await executionContract.getAddress()}`);
+    console.log(`Genesis height: ${(await ethers.provider.getTransactionReceipt(executionContract.deploymentTransaction().hash)).blockNumber}`);
 
     //Deploy spv vault manager
     console.log("\n- Deploying spv vault manager");
@@ -63,6 +65,7 @@ async function main() {
     await spvVaultManager.waitForDeployment();
     console.log("\n--- SpvVaultManager")
     console.log(`Contract address: ${await spvVaultManager.getAddress()}`);
+    console.log(`Genesis height: ${(await ethers.provider.getTransactionReceipt(spvVaultManager.deploymentTransaction().hash)).blockNumber}`);
 
     //Deploy spv vault manager
     console.log("\n- Deploying escrow manager");
@@ -71,6 +74,7 @@ async function main() {
     await escrowManager.waitForDeployment();
     console.log("\n--- EscrowManager")
     console.log(`Contract address: ${await escrowManager.getAddress()}`);
+    console.log(`Genesis height: ${(await ethers.provider.getTransactionReceipt(escrowManager.deploymentTransaction().hash)).blockNumber}`);
 
     console.log("\n- Deploying claim handlers");
     for(let handler of claimHandlers) {
