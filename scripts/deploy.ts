@@ -1,4 +1,4 @@
-import { ethers } from "hardhat";
+import { ethers, network } from "hardhat";
 import { getBlockchainInfo, getBlockheader } from "../test/utils/bitcoin_rpc_utils";
 import { serializeBitcoindStoredBlockheaderToStruct } from "../test/utils/evm/stored_blockheader";
 
@@ -15,6 +15,12 @@ const refundHandlers = [
 ];
 
 async function main() {
+    const wethContract: string = (network.config as any).wethAddress;
+    const transferOutGasForward: number = (network.config as any).transferOutGasForward;
+    if(wethContract==null || transferOutGasForward==null) throw new Error("wethContract & transferOutGasForward need to be specified for a chain!");
+    if(typeof(wethContract)!=="string" || !ethers.isAddress(wethContract)) throw new Error("wethContract invalid address!");
+    if(typeof(transferOutGasForward)!=="number" || transferOutGasForward < 2100) throw new Error("transferOutGasForward invalid value, must be at least 2100!");
+    
     const testnet = process.env.BITCOIN_NETWORK==="TESTNET" || process.env.BITCOIN_NETWORK==="REGTEST";
     if(testnet) {
         console.log("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
@@ -45,7 +51,7 @@ async function main() {
     //Deploy execution contract
     console.log("\n- Deploying execution contract");
     const ExecutionContract = await ethers.getContractFactory("ExecutionContract");
-    const executionContract = await ExecutionContract.deploy();
+    const executionContract = await ExecutionContract.deploy(wethContract, transferOutGasForward);
     await executionContract.waitForDeployment();
     console.log("\n--- ExecutionContract")
     console.log(`Contract address: ${await executionContract.getAddress()}`);
@@ -53,7 +59,7 @@ async function main() {
     //Deploy spv vault manager
     console.log("\n- Deploying spv vault manager");
     const SpvVaultManager = await ethers.getContractFactory("SpvVaultManager");
-    const spvVaultManager = await SpvVaultManager.deploy(await executionContract.getAddress());
+    const spvVaultManager = await SpvVaultManager.deploy(await executionContract.getAddress(), wethContract, transferOutGasForward);
     await spvVaultManager.waitForDeployment();
     console.log("\n--- SpvVaultManager")
     console.log(`Contract address: ${await spvVaultManager.getAddress()}`);
@@ -61,7 +67,7 @@ async function main() {
     //Deploy spv vault manager
     console.log("\n- Deploying escrow manager");
     const EscrowManager = await ethers.getContractFactory("EscrowManager");
-    const escrowManager = await EscrowManager.deploy();
+    const escrowManager = await EscrowManager.deploy(wethContract, transferOutGasForward);
     await escrowManager.waitForDeployment();
     console.log("\n--- EscrowManager")
     console.log(`Contract address: ${await escrowManager.getAddress()}`);

@@ -7,6 +7,8 @@ contract ExecutionContractWrapper is ExecutionContract {
     
     receive() external payable {}
 
+    constructor(IDepositOnlyWETH wrappedEthContract, uint256 transferOutGasForward) ExecutionContract(wrappedEthContract, transferOutGasForward) {}
+
     function getExecutionProxy() view external returns (address) {
         return address(executionProxy);
     }

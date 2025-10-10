@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.28;
 
-import {TransferUtils} from "../../transfer_utils/TransferUtils.sol";
+import {TransferHandler} from "../../transfer_utils/TransferHandler.sol";
+import {IDepositOnlyWETH} from "../../transfer_utils/interfaces/IDepositOnlyWETH.sol";
 
 struct LpVaultBalanceQuery {
     address owner;
@@ -17,14 +18,14 @@ interface ILpVault {
     function getBalance(LpVaultBalanceQuery[] calldata data) external view returns (uint256[] memory balances);
 }
 
-abstract contract LpVault is ILpVault {
+abstract contract LpVault is ILpVault, TransferHandler {
 
     mapping(address => mapping(address => uint256)) _lpVault;
 
     //Public external functions
     function deposit(address token, uint256 amount) external payable {
         _lpVault[msg.sender][token] += amount;
-        TransferUtils.transferIn(token, msg.sender, amount);
+        _TokenHandler_transferIn(token, msg.sender, amount);
     }
 
     function withdraw(address token, uint256 amount, address destination) external {
@@ -33,7 +34,8 @@ abstract contract LpVault is ILpVault {
         unchecked {
             _lpVault[msg.sender][token] = lpBalance - amount;
         } //We can use unchecked here, since there is an explicit check before this
-        TransferUtils.transferOut(token, destination, amount);
+        //Here we can forward all the available gas, since it's most probably the actual user/LP withdrawing
+        _TokenHandler_transferOutRawFullGas(token, destination, amount);
     }
 
     function getBalance(LpVaultBalanceQuery[] calldata data) external view returns (uint256[] memory balances) {

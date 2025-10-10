@@ -3,14 +3,17 @@ import {
 } from "@nomicfoundation/hardhat-toolbox/network-helpers";
 import { assert, expect } from "chai";
 import hre from "hardhat";
-import { randomAddress } from "../../utils/evm/utils";
+import { randomAddress, TRANSFER_OUT_MAX_GAS } from "../../utils/evm/utils";
 
 const ETH_MAGIC_ADDRESS = "0x0000000000000000000000000000000000000000";
 
 describe("LpVault", function () {
     async function deploy() {
+        const WETH9 = await hre.ethers.getContractFactory("WETH9");
+        const wethContract = await WETH9.deploy();
+
         const LpVaultWrapper = await hre.ethers.getContractFactory("LpVaultWrapper");
-        const contract = await LpVaultWrapper.deploy();
+        const contract = await LpVaultWrapper.deploy(wethContract, TRANSFER_OUT_MAX_GAS);
 
         const ERC20 = await hre.ethers.getContractFactory("TestERC20");
         const erc20Contract = await ERC20.deploy();
