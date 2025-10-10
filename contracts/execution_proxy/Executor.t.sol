@@ -10,6 +10,8 @@ contract ExecutorWrapper is Executor {
 
     receive() external payable {}
 
+    constructor(IDepositOnlyWETH wrappedEthContract, uint256 transferOutGasForward) Executor(wrappedEthContract, transferOutGasForward) {}
+
     function execute(
         address token, uint256 value, ExecutionAction calldata executionAction, address tokensDestination
     ) external payable {

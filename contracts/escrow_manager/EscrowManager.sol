@@ -3,6 +3,8 @@ pragma solidity ^0.8.28;
 
 import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 
+import {IDepositOnlyWETH} from "../transfer_utils/interfaces/IDepositOnlyWETH.sol";
+
 import {IClaimHandler} from "../common/IClaimHandler.sol";
 import {IRefundHandler} from "../common/IRefundHandler.sol";
 
@@ -17,8 +19,6 @@ import {ExecutionAction, ExecutionActionImpl} from "../execution_proxy/structs/E
 import {Executor} from "../execution_proxy/Executor.sol";
 
 import {Events} from "./Events.sol";
-
-import {TransferUtils} from "../transfer_utils/TransferUtils.sol";
 
 interface IEscrowManager {
     //Initializes the escrow
@@ -37,6 +37,10 @@ contract EscrowManager is EscrowStorage, LpVault, ReputationTracker, EIP712Sigha
 
     using EscrowDataImpl for EscrowData;
     using ExecutionActionImpl for ExecutionAction;
+
+    constructor(
+        IDepositOnlyWETH wrappedEthContract, uint256 transferOutGasForward
+    ) Executor(wrappedEthContract, transferOutGasForward) {}
 
     //_extraData parameter is used for data-availability/propagation of escrow-specific extraneous data on-chain
     // and is therefore unused in the function itself
@@ -82,7 +86,7 @@ contract EscrowManager is EscrowStorage, LpVault, ReputationTracker, EIP712Sigha
             _payIn(escrow.offerer, escrow.token, escrow.amount + depositAmount, true);
         } else {
             //Transfer funds separatelly
-            if(depositAmount > 0) TransferUtils.transferIn(escrow.depositToken, msg.sender, depositAmount);
+            if(depositAmount > 0) _TokenHandler_transferIn(escrow.depositToken, msg.sender, depositAmount);
             _payIn(escrow.offerer, escrow.token, escrow.amount, escrow.isPayIn());
         }
 
@@ -103,14 +107,14 @@ contract EscrowManager is EscrowStorage, LpVault, ReputationTracker, EIP712Sigha
             _ReputationTracker_updateReputation(ReputationTracker.REPUTATION_SUCCESS, escrow.claimer, escrow.token, escrow.claimHandler, escrow.amount);
         }
 
-        //Pay out claimer bounty
+        //Pay out claimer bounty, we can send out with the whole gasleft(), since the recipient is the caller!
         if(escrow.claimerBounty != 0) {
-            TransferUtils.transferOut(escrow.depositToken, msg.sender, escrow.claimerBounty);
+            _TokenHandler_transferOutRawFullGas(escrow.depositToken, msg.sender, escrow.claimerBounty);
         }
 
         //Pay rest of the deposit back to the claimer
         if(escrow.securityDeposit > escrow.claimerBounty) {
-            TransferUtils.transferOut(escrow.depositToken, escrow.claimer, escrow.securityDeposit - escrow.claimerBounty);
+            _TokenHandler_transferOut(escrow.depositToken, escrow.claimer, escrow.securityDeposit - escrow.claimerBounty);
         }
 
         //Emit event
@@ -152,12 +156,12 @@ contract EscrowManager is EscrowStorage, LpVault, ReputationTracker, EIP712Sigha
 
         //Pay out security deposit
         if(escrow.securityDeposit != 0) {
-            TransferUtils.transferOut(escrow.depositToken, escrow.offerer, escrow.securityDeposit);
+            _TokenHandler_transferOut(escrow.depositToken, escrow.offerer, escrow.securityDeposit);
         }
 
         //Pay rest of the deposit back to the claimer
         if(escrow.claimerBounty > escrow.securityDeposit) {
-            TransferUtils.transferOut(escrow.depositToken, escrow.claimer, escrow.claimerBounty - escrow.securityDeposit);
+            _TokenHandler_transferOut(escrow.depositToken, escrow.claimer, escrow.claimerBounty - escrow.securityDeposit);
         }
         
         //Refund funds
@@ -187,7 +191,7 @@ contract EscrowManager is EscrowStorage, LpVault, ReputationTracker, EIP712Sigha
 
         //Pay out the whole deposit
         uint256 totalDeposit = escrow.getTotalDeposit();
-        if(totalDeposit>0) TransferUtils.transferOut(escrow.depositToken, escrow.claimer, escrow.getTotalDeposit());
+        if(totalDeposit>0) _TokenHandler_transferOut(escrow.depositToken, escrow.claimer, escrow.getTotalDeposit());
         
         //Refund funds
         _payOut(escrow.offerer, escrow.token, escrow.amount, escrow.isPayIn());
@@ -199,7 +203,7 @@ contract EscrowManager is EscrowStorage, LpVault, ReputationTracker, EIP712Sigha
     //Internal functions
     function _payOut(address dst, address token, uint256 amount, bool payOut) internal {
         if(payOut) {
-            TransferUtils.transferOut(token, dst, amount);
+            _TokenHandler_transferOut(token, dst, amount);
         } else {
             _LpVault_transferOut(token, dst, amount);
         }
@@ -209,7 +213,7 @@ contract EscrowManager is EscrowStorage, LpVault, ReputationTracker, EIP712Sigha
     // the src address needs to be the address of the transaction sender, since the msg.value is checked
     function _payIn(address src, address token, uint256 amount, bool payIn) internal {
         if(payIn) {
-            TransferUtils.transferIn(token, src, amount);
+            _TokenHandler_transferIn(token, src, amount);
         } else {
             _LpVault_transferIn(token, src, amount);
         }

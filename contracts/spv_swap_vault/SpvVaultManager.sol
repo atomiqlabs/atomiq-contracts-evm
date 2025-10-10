@@ -13,7 +13,8 @@ import {BitcoinMerkleTree} from "../btc_utils/BitcoinMerkleTree.sol";
 import {StoredBlockHeader, StoredBlockHeaderImpl} from "../btc_relay/structs/StoredBlockHeader.sol";
 import {IBtcRelayView} from "../btc_relay/BtcRelay.sol";
 
-import {TransferUtils} from "../transfer_utils/TransferUtils.sol";
+import {TransferHandler} from "../transfer_utils/TransferHandler.sol";
+import {IDepositOnlyWETH} from "../transfer_utils/interfaces/IDepositOnlyWETH.sol";
 
 import {Execution} from "../execution_contract/structs/Execution.sol";
 import {IExecutionContract} from "../execution_contract/ExecutionContract.sol";
@@ -42,7 +43,7 @@ interface ISpvVaultManagerView {
     function parseBitcoinTx(bytes calldata transaction) pure external returns (BitcoinVaultTransactionData memory vault);
 }
 
-contract SpvVaultManager is ISpvVaultManager, ISpvVaultManagerView {
+contract SpvVaultManager is ISpvVaultManager, ISpvVaultManagerView, TransferHandler {
 
     using SpvVaultParametersImpl for SpvVaultParameters;
     using SpvVaultStateImpl for SpvVaultState;
@@ -56,7 +57,11 @@ contract SpvVaultManager is ISpvVaultManager, ISpvVaultManagerView {
     mapping(address => mapping(uint96 => SpvVaultState)) _vaults;
     mapping(address => mapping(uint96 => mapping(bytes32 => address))) _liquidityFronts;
 
-    constructor(IExecutionContract executionContract) {
+    constructor(
+        IExecutionContract executionContract,
+        IDepositOnlyWETH wrappedEthContract, 
+        uint256 transferOutGasForward
+    ) TransferHandler(wrappedEthContract, transferOutGasForward) {
         _executionContract = executionContract;
     }
 
@@ -146,7 +151,7 @@ contract SpvVaultManager is ISpvVaultManager, ISpvVaultManagerView {
             _transferOut(data.recipient, vaultParams.token0, amount0, vaultParams.token1, amount1);
         } else {
             //Amount1 of token1 goes directly to the recipient
-            if(amount1 > 0) TransferUtils.transferOut(vaultParams.token1, data.recipient, amount1);
+            if(amount1 > 0) _TokenHandler_transferOut(vaultParams.token1, data.recipient, amount1);
             //Rest is transfered to execution contract
             _toExecutionContract(vaultParams, data, btcTxHash);
         }
@@ -260,7 +265,7 @@ contract SpvVaultManager is ISpvVaultManager, ISpvVaultManagerView {
                     //Use non-reverting transfer function, since we also support paying out native currency (ETH), the transfer out can
                     // fail if the destination is a malicious contract that e.g. runs out of gas when called, or doesn't allow native
                     // currency deposits at all. We silently ignore this error if it happens.
-                    TransferUtils.transferOutNoRevert(vaultParams.token1, recipient, payoutAmount1);
+                    _TokenHandler_transferOutNoRevert(vaultParams.token1, recipient, payoutAmount1);
                 }
 
                 //Rest is transfered to execution contract
@@ -291,30 +296,30 @@ contract SpvVaultManager is ISpvVaultManager, ISpvVaultManagerView {
     function _transferIn(address token0, uint256 amount0, address token1, uint256 amount1) internal {
         if(token0==token1) {
             //Transfer in one go, due to TransferUtils limitation when receiving native token
-            TransferUtils.transferIn(token0, msg.sender, amount0 + amount1);
+            _TokenHandler_transferIn(token0, msg.sender, amount0 + amount1);
         } else {
-            if(amount0 > 0) TransferUtils.transferIn(token0, msg.sender, amount0);
-            if(amount1 > 0) TransferUtils.transferIn(token1, msg.sender, amount1);
+            if(amount0 > 0) _TokenHandler_transferIn(token0, msg.sender, amount0);
+            if(amount1 > 0) _TokenHandler_transferIn(token1, msg.sender, amount1);
         }
     }
 
     function _transferOut(address recipient, address token0, uint256 amount0, address token1, uint256 amount1) internal {
         if(token0==token1) {
-            TransferUtils.transferOut(token0, recipient, amount0 + amount1);
+            _TokenHandler_transferOut(token0, recipient, amount0 + amount1);
         } else {
-            if(amount0 > 0) TransferUtils.transferOut(token0, recipient, amount0);
-            if(amount1 > 0) TransferUtils.transferOut(token1, recipient, amount1);
+            if(amount0 > 0) _TokenHandler_transferOut(token0, recipient, amount0);
+            if(amount1 > 0) _TokenHandler_transferOut(token1, recipient, amount1);
         }
     }
 
     function _transferOutNoRevert(address recipient, address token0, uint256 amount0, address token1, uint256 amount1) internal returns (bool success) {
         if(token0==token1) {
-            success = TransferUtils.transferOutNoRevert(token0, recipient, amount0 + amount1);
+            success = _TokenHandler_transferOutNoRevert(token0, recipient, amount0 + amount1);
         } else {
             bool success0 = true;
-            if(amount0 > 0) success0 = TransferUtils.transferOutNoRevert(token0, recipient, amount0);
+            if(amount0 > 0) success0 = _TokenHandler_transferOutNoRevert(token0, recipient, amount0);
             bool success1 = true;
-            if(amount1 > 0) success1 = TransferUtils.transferOutNoRevert(token1, recipient, amount1);
+            if(amount1 > 0) success1 = _TokenHandler_transferOutNoRevert(token1, recipient, amount1);
             success = success0 && success1;
         }
     }
@@ -333,7 +338,7 @@ contract SpvVaultManager is ISpvVaultManager, ISpvVaultManagerView {
         if(vaultParams.token0 == address(0x0)) {
             _executionContract.create{value: amount0 + executionHandlerFee}(data.recipient, btcTxHash, execution);
         } else {
-            TransferUtils.approve(vaultParams.token0, address(_executionContract), amount0 + executionHandlerFee);
+            _TokenHandler_approve(vaultParams.token0, address(_executionContract), amount0 + executionHandlerFee);
             _executionContract.create(data.recipient, btcTxHash, execution);
         }
     }

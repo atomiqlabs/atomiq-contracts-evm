@@ -2,16 +2,19 @@
 pragma solidity ^0.8.28;
 
 import {ContractCall} from "./structs/ContractCall.sol";
-import {TransferUtils} from "../transfer_utils/TransferUtils.sol";
+import {TransferHandler} from "../transfer_utils/TransferHandler.sol";
+import {IDepositOnlyWETH} from "../transfer_utils/interfaces/IDepositOnlyWETH.sol";
 
 interface IExecutionProxy {
     function execute(ContractCall[] calldata data) external;
     function drainTokens(address mainToken, address[] calldata otherTokens, address recipient) external;
 }
 
-contract ExecutionProxy is IExecutionProxy {
+contract ExecutionProxy is IExecutionProxy, TransferHandler {
 
     receive() external payable {}
+
+    constructor(IDepositOnlyWETH wrappedEthContract, uint256 transferOutGasForward) TransferHandler(wrappedEthContract, transferOutGasForward) {}
 
     function execute(ContractCall[] calldata data) external {
         for(uint256 i=0;i<data.length;i++) {
@@ -24,15 +27,15 @@ contract ExecutionProxy is IExecutionProxy {
     }
 
     function drainTokens(address mainToken, address[] calldata otherTokens, address recipient) external {
-        uint256 balance = TransferUtils.balanceOf(mainToken, address(this));
+        uint256 balance = _TokenHandler_balanceOf(mainToken, address(this));
         if(balance > 0) {
-            TransferUtils.transferOut(mainToken, recipient, balance);
+            _TokenHandler_transferOut(mainToken, recipient, balance);
         }
         for(uint256 i=0;i<otherTokens.length;i++) {
             address otherToken = otherTokens[i];
-            uint256 otherBalance = TransferUtils.balanceOf(otherToken, address(this));
+            uint256 otherBalance = _TokenHandler_balanceOf(otherToken, address(this));
             if(otherBalance > 0) {
-                TransferUtils.transferOut(otherToken, recipient, otherBalance);
+                _TokenHandler_transferOut(otherToken, recipient, otherBalance);
             }
         }
     }

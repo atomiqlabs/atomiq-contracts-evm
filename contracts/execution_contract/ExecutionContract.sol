@@ -4,7 +4,7 @@ pragma solidity ^0.8.28;
 import {Execution, ExecutionImpl} from "./structs/Execution.sol";
 import {ExecutionAction, ExecutionActionImpl} from "../execution_proxy/structs/ExecutionAction.sol";
 import {ExecutionProxy} from "../execution_proxy/ExecutionProxy.sol";
-import {TransferUtils} from "../transfer_utils/TransferUtils.sol";
+import {IDepositOnlyWETH} from "../transfer_utils/interfaces/IDepositOnlyWETH.sol";
 import {Events} from "./Events.sol";
 import {Executor} from "../execution_proxy/Executor.sol";
 
@@ -32,6 +32,8 @@ contract ExecutionContract is Executor, IExecutionContract, IExecutionContractVi
     //Stores hash commitments of the scheduled executions
     mapping(address => mapping(bytes32 => bytes32)) _executionCommitments;
 
+    constructor(IDepositOnlyWETH wrappedEthContract, uint256 transferOutGasForward) Executor(wrappedEthContract, transferOutGasForward) {}
+
     function create(address owner, bytes32 creatorSalt, Execution calldata execution) external payable {
         //Compute the actual salt from the sender address and provided creator_salt,
         // this ensures that no one else can try to front-run the execution creation
@@ -47,7 +49,7 @@ contract ExecutionContract is Executor, IExecutionContract, IExecutionContractVi
 
         //Transfer token amount to the contract
         uint256 totalAmount = execution.amount + execution.executionFee;
-        TransferUtils.transferIn(execution.token, msg.sender, totalAmount);
+        _TokenHandler_transferIn(execution.token, msg.sender, totalAmount);
 
         //Emit event
         emit Events.ExecutionCreated(owner, salt, executionHash);
@@ -64,8 +66,9 @@ contract ExecutionContract is Executor, IExecutionContract, IExecutionContractVi
         //Clear execution
         delete _executionCommitments[owner][salt];
 
-        //Transfer execution fee to caller
-        TransferUtils.transferOut(execution.token, msg.sender, execution.executionFee);
+        //Transfer execution fee to caller, we can forward raw with gasleft(), since the
+        // recipient is a caller
+        _TokenHandler_transferOutRawFullGas(execution.token, msg.sender, execution.executionFee);
 
         //Execute the success action
         (bool success, bytes memory callError) = _execute(execution.token, execution.amount, executionAction, owner);
@@ -84,11 +87,12 @@ contract ExecutionContract is Executor, IExecutionContract, IExecutionContractVi
         //Clear execution
         delete _executionCommitments[owner][salt];
         
-        //Transfer execution fee to caller
-        TransferUtils.transferOut(execution.token, msg.sender, execution.executionFee);
+        //Transfer execution fee to caller, we can forward raw with gasleft(), since the
+        // recipient is a caller
+        _TokenHandler_transferOutRawFullGas(execution.token, msg.sender, execution.executionFee);
 
         //Transfer funds back to owner
-        TransferUtils.transferOut(execution.token, owner, execution.amount);
+        _TokenHandler_transferOut(execution.token, owner, execution.amount);
 
         //Emit event
         emit Events.ExecutionProcessed(owner, salt, executionHash, false, "");
@@ -103,8 +107,9 @@ contract ExecutionContract is Executor, IExecutionContract, IExecutionContractVi
         //Clear execution
         delete _executionCommitments[msg.sender][salt];
         
-        //Transfer full amount & execution fee to caller/owner
-        TransferUtils.transferOut(execution.token, msg.sender, execution.amount + execution.executionFee);
+        //Transfer full amount & execution fee to caller/owner, we can send raw with gasleft(), since the
+        // recipient is a caller of the function
+        _TokenHandler_transferOutRawFullGas(execution.token, msg.sender, execution.amount + execution.executionFee);
 
         //Emit event
         emit Events.ExecutionProcessed(msg.sender, salt, executionHash, false, "");
