@@ -6,7 +6,7 @@ import hre from "hardhat";
 import {HardhatEthersSigner} from "@nomicfoundation/hardhat-ethers/signers";
 import { EscrowDataType, getEscrowHash, getRandomEscrowData } from "../../utils/evm/escrow_data";
 import { contracts, TestERC20 } from "../../../typechain-types";
-import { getExecutionSalt, packAddressAndVaultId, randomAddress, randomBytes32, structToArray } from "../../utils/evm/utils";
+import { getExecutionSalt, packAddressAndVaultId, randomAddress, randomBytes32, structToArray, TRANSFER_OUT_MAX_GAS } from "../../utils/evm/utils";
 import { randomUnsigned, randomUnsignedBigInt } from "../../utils/random";
 import { ExecutionAction, getExecutionActionHash } from "../../utils/evm/execution_action";
 import {randomBytes} from "crypto";
@@ -22,12 +22,15 @@ import { Transaction } from "bitcoinjs-lib";
 describe("SpvVaultManager", function () {
 
     async function deploy() {
+        const WETH9 = await hre.ethers.getContractFactory("WETH9");
+        const wethContract = await WETH9.deploy();
+
         const BtcRelay = await hre.ethers.getContractFactory("BtcRelay");
         const ExecutionContract = await hre.ethers.getContractFactory("ExecutionContract");
-        const executionContract = await ExecutionContract.deploy();
+        const executionContract = await ExecutionContract.deploy(wethContract, TRANSFER_OUT_MAX_GAS);
 
         const SpvVaultManager = await hre.ethers.getContractFactory("SpvVaultManager");
-        const contract = await SpvVaultManager.deploy(await executionContract.getAddress());
+        const contract = await SpvVaultManager.deploy(await executionContract.getAddress(), wethContract, TRANSFER_OUT_MAX_GAS);
 
         const ERC20 = await hre.ethers.getContractFactory("TestERC20");
         const erc20Contract1 = await ERC20.deploy();

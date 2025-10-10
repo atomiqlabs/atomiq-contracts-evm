@@ -3,15 +3,18 @@ import {
 } from "@nomicfoundation/hardhat-toolbox/network-helpers";
 import { assert, expect } from "chai";
 import hre from "hardhat";
-import { getExecutionSalt, randomAddress, randomBytes32 } from "../../utils/evm/utils";
+import { getExecutionSalt, randomAddress, randomBytes32, TRANSFER_OUT_MAX_GAS } from "../../utils/evm/utils";
 import { TestERC20 } from "../../../typechain-types";
 import { ExecutionAction, getExecutionActionHash } from "../../utils/evm/execution_action";
 import { Execution, getExecutionHash } from "../../utils/evm/execution";
 
 describe("ExecutionContract", function () {
     async function deploy() {
+        const WETH9 = await hre.ethers.getContractFactory("WETH9");
+        const wethContract = await WETH9.deploy();
+
         const ExecutionContractWrapper = await hre.ethers.getContractFactory("ExecutionContractWrapper");
-        const contract = await ExecutionContractWrapper.deploy();
+        const contract = await ExecutionContractWrapper.deploy(wethContract, TRANSFER_OUT_MAX_GAS);
 
         const DummyContract = await hre.ethers.getContractFactory("DummyContract");
         const dummyContract = await DummyContract.deploy();

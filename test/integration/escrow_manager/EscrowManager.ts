@@ -6,15 +6,18 @@ import hre from "hardhat";
 import {HardhatEthersSigner} from "@nomicfoundation/hardhat-ethers/signers";
 import { EscrowDataType, getEscrowHash, getRandomEscrowData } from "../../utils/evm/escrow_data";
 import { contracts, TestERC20 } from "../../../typechain-types";
-import { randomAddress, randomBytes32 } from "../../utils/evm/utils";
+import { randomAddress, randomBytes32, TRANSFER_OUT_MAX_GAS } from "../../utils/evm/utils";
 import { randomUnsigned, randomUnsignedBigInt } from "../../utils/random";
 import { ExecutionAction, getExecutionActionHash } from "../../utils/evm/execution_action";
 import {randomBytes} from "crypto";
 
 describe("EscrowManager", function () {
     async function deploy() {
+        const WETH9 = await hre.ethers.getContractFactory("WETH9");
+        const wethContract = await WETH9.deploy();
+
         const EscrowManager = await hre.ethers.getContractFactory("EscrowManager");
-        const contract = await EscrowManager.deploy();
+        const contract = await EscrowManager.deploy(wethContract, TRANSFER_OUT_MAX_GAS);
 
         const ERC20 = await hre.ethers.getContractFactory("TestERC20");
         const erc20Contract1 = await ERC20.deploy();
