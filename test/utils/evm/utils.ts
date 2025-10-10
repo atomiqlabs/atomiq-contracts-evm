@@ -28,3 +28,5 @@ export function packAddressAndVaultId(address: string, vaultId: bigint): string 
 export function getExecutionSalt(address: string, creatorSalt: string | Buffer): string {
     return ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(["address", "bytes32"], [address, creatorSalt]));
 }
+
+export const TRANSFER_OUT_MAX_GAS = 40_000;
