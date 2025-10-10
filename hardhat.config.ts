@@ -23,6 +23,14 @@ const config: HardhatUserConfig = {
     citreaTestnet: {
       url: "https://rpc.testnet.citrea.xyz",
       accounts: [process.env.DEPLOYER_PRIVATE_KEY]
+    },
+    botanixTestnet: {
+      url: "https://node.botanixlabs.dev",
+      accounts: [process.env.DEPLOYER_PRIVATE_KEY]
+    },
+    botanixMainnet: {
+      url: "https://rpc.botanixlabs.com",
+      accounts: [process.env.DEPLOYER_PRIVATE_KEY]
     }
   },
   gasReporter: {

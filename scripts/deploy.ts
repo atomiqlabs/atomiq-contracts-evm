@@ -16,9 +16,11 @@ const refundHandlers = [
 
 async function main() {
     const testnet = process.env.BITCOIN_NETWORK==="TESTNET" || process.env.BITCOIN_NETWORK==="REGTEST";
-    console.log("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-    console.log("!!! Deploying BTC relay in TESTNET MODE !!!");
-    console.log("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+    if(testnet) {
+        console.log("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+        console.log("!!! Deploying BTC relay in TESTNET MODE !!!");
+        console.log("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+    }
 
     const blockchainInfo = await getBlockchainInfo();
     const finalizedHeight = Math.max(0, blockchainInfo.headers - 500);
@@ -39,7 +41,6 @@ async function main() {
     await btcRelayContract.waitForDeployment();
     console.log("\n--- BtcRelay")
     console.log(`Contract address: ${await btcRelayContract.getAddress()}`);
-    return;
 
     //Deploy execution contract
     console.log("\n- Deploying execution contract");
