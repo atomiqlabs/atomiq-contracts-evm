@@ -3,8 +3,12 @@ dotenv.config();
 
 import { HardhatUserConfig } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox";
+import "@nomicfoundation/hardhat-verify";
 
 const config: HardhatUserConfig & {networks: {[chainName: string]: {wethAddress: string, transferOutGasForward: number}}} = {
+  sourcify: {
+    enabled: false
+  },
   solidity: {
     version: "0.8.29",
     settings: {
@@ -15,6 +19,21 @@ const config: HardhatUserConfig & {networks: {[chainName: string]: {wethAddress:
       },
       viaIR: true
     }
+  },
+  etherscan: {
+    apiKey: {
+      botanixMainnet: "botanix"
+    },
+    customChains: [
+      {
+        network: "botanixMainnet",
+        chainId: 3637,
+        urls: {
+          apiURL: "https://api.routescan.io/v2/network/mainnet/evm/3637/etherscan",
+          browserURL: "https://botanixscan.io"
+        }
+      }
+    ]
   },
   networks: {
     hardhat: {
