@@ -2,6 +2,10 @@ import { ethers, network } from "hardhat";
 import { getBlockchainInfo, getBlockheader } from "../test/utils/bitcoin_rpc_utils";
 import { serializeBitcoindStoredBlockheaderToStruct } from "../test/utils/evm/stored_blockheader";
 
+const deployOptions ={
+    maxFeePerGas: 5_000_000n,
+    maxPriorityFeePerGas: 100_000n,
+};
 
 const claimHandlers = [
     "HashlockClaimHandler",
@@ -43,7 +47,7 @@ async function main() {
         ...block,
         previousBlockTimestamps,
         epochstart: (await getBlockheader(2016*Math.floor(block.height/2016))).time
-    }), !testnet);
+    }), !testnet, deployOptions);
     await btcRelayContract.waitForDeployment();
     console.log("\n--- BtcRelay")
     console.log(`Contract address: ${await btcRelayContract.getAddress()}`);
@@ -52,7 +56,7 @@ async function main() {
     //Deploy execution contract
     console.log("\n- Deploying execution contract");
     const ExecutionContract = await ethers.getContractFactory("ExecutionContract");
-    const executionContract = await ExecutionContract.deploy(wethContract, transferOutGasForward);
+    const executionContract = await ExecutionContract.deploy(wethContract, transferOutGasForward, deployOptions);
     await executionContract.waitForDeployment();
     console.log("\n--- ExecutionContract")
     console.log(`Contract address: ${await executionContract.getAddress()}`);
@@ -61,7 +65,7 @@ async function main() {
     //Deploy spv vault manager
     console.log("\n- Deploying spv vault manager");
     const SpvVaultManager = await ethers.getContractFactory("SpvVaultManager");
-    const spvVaultManager = await SpvVaultManager.deploy(await executionContract.getAddress(), wethContract, transferOutGasForward);
+    const spvVaultManager = await SpvVaultManager.deploy(await executionContract.getAddress(), wethContract, transferOutGasForward, deployOptions);
     await spvVaultManager.waitForDeployment();
     console.log("\n--- SpvVaultManager")
     console.log(`Contract address: ${await spvVaultManager.getAddress()}`);
@@ -70,7 +74,7 @@ async function main() {
     //Deploy spv vault manager
     console.log("\n- Deploying escrow manager");
     const EscrowManager = await ethers.getContractFactory("EscrowManager");
-    const escrowManager = await EscrowManager.deploy(wethContract, transferOutGasForward);
+    const escrowManager = await EscrowManager.deploy(wethContract, transferOutGasForward, deployOptions);
     await escrowManager.waitForDeployment();
     console.log("\n--- EscrowManager")
     console.log(`Contract address: ${await escrowManager.getAddress()}`);
@@ -79,7 +83,7 @@ async function main() {
     console.log("\n- Deploying claim handlers");
     for(let handler of claimHandlers) {
         const ClaimHandler = await ethers.getContractFactory(handler);
-        const claimHandler = await ClaimHandler.deploy();
+        const claimHandler = await ClaimHandler.deploy(deployOptions);
         await claimHandler.waitForDeployment();
         console.log("\n--- "+handler)
         console.log(`Contract address: ${await claimHandler.getAddress()}`);
@@ -88,7 +92,7 @@ async function main() {
     console.log("\n- Deploying refund handlers");
     for(let handler of refundHandlers) {
         const RefundHandler = await ethers.getContractFactory(handler);
-        const refundHandler = await RefundHandler.deploy();
+        const refundHandler = await RefundHandler.deploy(deployOptions);
         await refundHandler.waitForDeployment();
         console.log("\n--- "+handler)
         console.log(`Contract address: ${await refundHandler.getAddress()}`);

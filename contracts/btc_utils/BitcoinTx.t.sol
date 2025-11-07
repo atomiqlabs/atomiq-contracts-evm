@@ -37,7 +37,7 @@ contract BitcoinTxWrapper {
     function getOutputScriptHash(BitcoinTx memory self, uint256 vout) pure external returns (bytes32) {
         return BitcoinTxImpl.getOutputScriptHash(self, vout);
     }
-    function getOutputScript(BitcoinTx memory self, uint256 vout) pure external returns (bytes memory) {
-        return BitcoinTxImpl.getOutputScript(self, vout);
-    }
+    // function getOutputScript(BitcoinTx memory self, uint256 vout) pure external returns (bytes memory) {
+    //     return BitcoinTxImpl.getOutputScript(self, vout);
+    // }
 }

@@ -8,7 +8,7 @@ const config: HardhatUserConfig & {networks: {[chainName: string]: {wethAddress:
   solidity: {
     version: "0.8.29",
     settings: {
-      evmVersion: "cancun",
+      evmVersion: "shanghai",
       optimizer: {
         enabled: true,
         runs: 1000000
@@ -36,6 +36,12 @@ const config: HardhatUserConfig & {networks: {[chainName: string]: {wethAddress:
       url: "https://rpc.botanixlabs.com",
       accounts: [process.env.DEPLOYER_PRIVATE_KEY],
       wethAddress: "0x0D2437F93Fed6EA64Ef01cCde385FB1263910C56",
+      transferOutGasForward: 40_000
+    },
+    alpenTestnet: {
+      url: "https://rpc.testnet.alpenlabs.io",
+      accounts: [process.env.DEPLOYER_PRIVATE_KEY],
+      wethAddress: "0x6aCBf3AfaD22cF08028b9e13780AB5C9D958d46E",
       transferOutGasForward: 40_000
     }
   },

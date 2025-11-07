@@ -88,7 +88,13 @@ library BitcoinTxImpl {
                 //Previous output:
                 //hash: bytes32
                 //vout: uint32
-                mcopy(inputsPtr, ptr, 36) //Copy the hash and vout of the UTXO to inputs
+
+                //For Cancun with mcopy opcode:
+                // mcopy(inputsPtr, ptr, 36) //Copy the hash and vout of the UTXO to inputs
+                //For Shanghai without mcopy:
+                mstore(inputsPtr, mload(ptr))
+                mstore(add(inputsPtr, 4), mload(add(ptr, 4)))
+
                 ptr := add(ptr, 36)
 
                 //input_script_length: CompactSize
@@ -334,22 +340,22 @@ library BitcoinTxImpl {
         }
     }
 
-    function getOutputScript(BitcoinTx memory self, uint256 vout) pure internal returns (bytes memory script) {
-        bytes memory data = self.data;
-        bytes memory outputs = self.outputs;
-        uint256 voutOffset = vout * BitcoinTxOutputByteLength;
-        require(outputs.length > voutOffset, "btcTx: Output not found");
-        assembly ("memory-safe") {
-            let ptr := add(add(outputs, add(32, 8)), voutOffset) //Offset 8 (32+8 in total), so we can directly read script offset and length
-            let packedData := mload(ptr)
-            let scriptOffset := shr(192, packedData)
-            let scriptLength := and(shr(128, packedData), 0xffffffffffffffff)
+    // function getOutputScript(BitcoinTx memory self, uint256 vout) pure internal returns (bytes memory script) {
+    //     bytes memory data = self.data;
+    //     bytes memory outputs = self.outputs;
+    //     uint256 voutOffset = vout * BitcoinTxOutputByteLength;
+    //     require(outputs.length > voutOffset, "btcTx: Output not found");
+    //     assembly ("memory-safe") {
+    //         let ptr := add(add(outputs, add(32, 8)), voutOffset) //Offset 8 (32+8 in total), so we can directly read script offset and length
+    //         let packedData := mload(ptr)
+    //         let scriptOffset := shr(192, packedData)
+    //         let scriptLength := and(shr(128, packedData), 0xffffffffffffffff)
             
-            script := mload(0x40)
-            mstore(0x40, add(add(script, 32), scriptLength))
-            mstore(script, scriptLength)
-            mcopy(add(script, 32), add(add(data, 32), scriptOffset), scriptLength)
-        }
-    }
+    //         script := mload(0x40)
+    //         mstore(0x40, add(add(script, 32), scriptLength))
+    //         mstore(script, scriptLength)
+    //         mcopy(add(script, 32), add(add(data, 32), scriptOffset), scriptLength)
+    //     }
+    // }
 
 }
