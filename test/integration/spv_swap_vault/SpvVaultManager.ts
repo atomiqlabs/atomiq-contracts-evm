@@ -6,7 +6,7 @@ import hre from "hardhat";
 import {HardhatEthersSigner} from "@nomicfoundation/hardhat-ethers/signers";
 import { EscrowDataType, getEscrowHash, getRandomEscrowData } from "../../utils/evm/escrow_data";
 import { contracts, TestERC20 } from "../../../typechain-types";
-import { getExecutionSalt, packAddressAndVaultId, randomAddress, randomBytes32, structToArray, TRANSFER_OUT_MAX_GAS } from "../../utils/evm/utils";
+import { getExecutionSalt, getExecutionSaltForSpvContract, packAddressAndVaultId, randomAddress, randomBytes32, structToArray, TRANSFER_OUT_MAX_GAS } from "../../utils/evm/utils";
 import { randomUnsigned, randomUnsignedBigInt } from "../../utils/random";
 import { ExecutionAction, getExecutionActionHash } from "../../utils/evm/execution_action";
 import {randomBytes} from "crypto";
@@ -671,13 +671,25 @@ describe("SpvVaultManager", function () {
 
                 assert.strictEqual(await contract.getFronterAddress(account1.address, vaultId, btcTxHash, btcTxData), fronter.address);
                 assert.strictEqual(await contract.getFronterById(account1.address, vaultId, getBitcoinVaultTransactionDataHash(btcTxData, btcTxHash)), fronter.address);
-                if(usesExecution) assert.strictEqual(await executionContract.getExecutionCommitmentHash(account3.address, getExecutionSalt(await contract.getAddress(), btcTxHash)), getExecutionHash({
-                    executionActionHash: executionHash,
-                    executionFee: btcTxData.executionHandlerFeeAmount0 * vaultParams.token0Multiplier,
-                    token: vaultParams.token0,
-                    expiry: btcTxData.executionExpiry,
-                    amount: btcTxData.amount0 * vaultParams.token0Multiplier
-                }));
+                if(usesExecution) assert.strictEqual(
+                    await executionContract.getExecutionCommitmentHash(
+                        account3.address, 
+                        getExecutionSaltForSpvContract(
+                            await contract.getAddress(),
+                            account1.address,
+                            vaultId,
+                            btcTxData,
+                            btcTxHash
+                        )
+                    ), 
+                    getExecutionHash({
+                        executionActionHash: executionHash,
+                        executionFee: btcTxData.executionHandlerFeeAmount0 * vaultParams.token0Multiplier,
+                        token: vaultParams.token0,
+                        expiry: btcTxData.executionExpiry,
+                        amount: btcTxData.amount0 * vaultParams.token0Multiplier
+                    })
+                );
 
                 preBalances[fronter.address][token0] -= totalDepositAmount0;
                 preBalances[fronter.address][token1] -= totalDepositAmount1;
@@ -1235,13 +1247,25 @@ describe("SpvVaultManager", function () {
                     preBalances[claimer.address]["0x0000000000000000000000000000000000000000"] -= receipt.gasUsed * receipt.gasPrice;
                 }
 
-                if(usesExecution) assert.strictEqual(await executionContract.getExecutionCommitmentHash(account3.address, getExecutionSalt(await contract.getAddress(), btcTx.getHash())), getExecutionHash({
-                    executionActionHash: executionHash,
-                    executionFee: vaultTransactionData.executionHandlerFeeAmount0 * vaultParams.token0Multiplier,
-                    token: vaultParams.token0,
-                    expiry: vaultTransactionData.executionExpiry,
-                    amount: vaultTransactionData.amount0 * vaultParams.token0Multiplier
-                }));
+                if(usesExecution) assert.strictEqual(
+                    await executionContract.getExecutionCommitmentHash(
+                        account3.address,
+                        getExecutionSaltForSpvContract(
+                            await contract.getAddress(),
+                            account1.address,
+                            vaultId,
+                            vaultTransactionData,
+                            "0x"+btcTx.getHash().toString("hex")
+                        )
+                    ),
+                    getExecutionHash({
+                        executionActionHash: executionHash,
+                        executionFee: vaultTransactionData.executionHandlerFeeAmount0 * vaultParams.token0Multiplier,
+                        token: vaultParams.token0,
+                        expiry: vaultTransactionData.executionExpiry,
+                        amount: vaultTransactionData.amount0 * vaultParams.token0Multiplier
+                    })
+                );
 
                 preBalances[await contract.getAddress()][token0] -= amount0 + vaultTransactionData.callerFee0 + vaultTransactionData.frontingFee0 + vaultTransactionData.executionHandlerFeeAmount0;
                 preBalances[await contract.getAddress()][token1] -= amount1 + vaultTransactionData.callerFee1 + vaultTransactionData.frontingFee1;
@@ -1330,13 +1354,25 @@ describe("SpvVaultManager", function () {
 
                 await front(fronter, account1.address, vaultId, vaultParams, vaultTransactionData, btcTx.getHash());
 
-                if(usesExecution) assert.strictEqual(await executionContract.getExecutionCommitmentHash(account3.address, getExecutionSalt(await contract.getAddress(), btcTx.getHash())), getExecutionHash({
-                    executionActionHash: executionHash,
-                    executionFee: vaultTransactionData.executionHandlerFeeAmount0 * vaultParams.token0Multiplier,
-                    token: vaultParams.token0,
-                    expiry: vaultTransactionData.executionExpiry,
-                    amount: vaultTransactionData.amount0 * vaultParams.token0Multiplier
-                }));
+                if(usesExecution) assert.strictEqual(
+                    await executionContract.getExecutionCommitmentHash(
+                        account3.address,
+                        getExecutionSaltForSpvContract(
+                            await contract.getAddress(),
+                            account1.address,
+                            vaultId,
+                            vaultTransactionData,
+                            "0x"+btcTx.getHash().toString("hex")
+                        )
+                    ),
+                    getExecutionHash({
+                        executionActionHash: executionHash,
+                        executionFee: vaultTransactionData.executionHandlerFeeAmount0 * vaultParams.token0Multiplier,
+                        token: vaultParams.token0,
+                        expiry: vaultTransactionData.executionExpiry,
+                        amount: vaultTransactionData.amount0 * vaultParams.token0Multiplier
+                    })
+                );
 
                 const preBalances: {[address: string]: {[tokenAddress: string]: bigint}} = await getBalances([
                     {address: fronter.address, tokenAddress: token0},
