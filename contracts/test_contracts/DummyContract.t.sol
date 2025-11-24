@@ -23,4 +23,18 @@ contract DummyContract {
         while(true) i++;
     }
 
+    function burn1m() pure external {
+        assembly {
+            let iterations := 28565
+            for { } gt(iterations, 0) { iterations := sub(iterations, 1) } {}
+        }
+    }
+
+    function burn5m() pure external {
+        assembly {
+            let iterations := 142857
+            for { } gt(iterations, 0) { iterations := sub(iterations, 1) } {}
+        }
+    }
+
 }
