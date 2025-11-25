@@ -852,7 +852,7 @@ describe("ExecutionContract", function () {
     });
 
 
-    it("Exploit EIP-150 63/64 rule", async function () {
+    it("Unable to exploit EIP-150 63/64 rule", async function () {
         const {contract, account1, account2, erc20Contract1, create, dummyContract} = await loadFixture(deploy);
 
         const {to, data} = await dummyContract.burn5m.populateTransaction();
@@ -888,6 +888,6 @@ describe("ExecutionContract", function () {
         });
 
         //This call should fail, because the transaction gas limit is not enough to execute the action
-        await expect(promise).to.be.revertedWithoutReason();
+        await expect(promise).to.be.revertedWith("strictCall(): not enough gas");
     });
 });
