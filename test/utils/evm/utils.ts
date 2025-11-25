@@ -3,6 +3,10 @@ import { toBuffer } from "../buffer_utils";
 import { ethers } from "hardhat";
 import { BitcoinVaultTransactionData, getBitcoinVaultTransactionDataHash } from "./bitcoin_vault_transaction_data";
 
+export function randomAddressNoZeroBytes(): string {
+    return "0x"+Buffer.from(randomBytes(20).map(val => val===0 ? 1 : val)).toString("hex");
+}
+
 export function randomAddress(): string {
     return "0x"+randomBytes(20).toString("hex");
 }

@@ -6,6 +6,8 @@ event PayableEvent(uint256 value, bytes data);
 
 contract DummyContract {
 
+    function doNothing() external payable {}
+
     function call(bytes calldata data) external {
         emit Event(data);
     }
