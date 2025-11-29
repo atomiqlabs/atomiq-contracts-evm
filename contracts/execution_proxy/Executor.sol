@@ -5,6 +5,7 @@ import {TransferHandler} from "../transfer_utils/TransferHandler.sol";
 import {IDepositOnlyWETH} from "../transfer_utils/interfaces/IDepositOnlyWETH.sol";
 import {ExecutionProxy} from "./ExecutionProxy.sol";
 import {ExecutionAction, ExecutionActionImpl} from "./structs/ExecutionAction.sol";
+import {ContractCallUtils} from "../utils/ContractCallUtils.sol";
 
 abstract contract Executor is TransferHandler {
 
@@ -27,9 +28,14 @@ abstract contract Executor is TransferHandler {
         // available gas since we can trust the executionProxy deployed in constructor
         _TokenHandler_transferOutRawFullGas(token, address(executionProxy), value);
         
-        //Try to execute calls
-        (success, callError) = address(executionProxy).call{gas: executionAction.gasLimit}(
-            abi.encodeWithSelector(ExecutionProxy.execute.selector, executionAction.calls)
+        //Try to execute calls using safeCall util, this makes sure that the caller
+        // passed in enough gas in the gas limit, such that at least `executionAction.gasLimit`
+        // is forwarded to the execution proxy in *full*
+        (success, callError) = ContractCallUtils.safeCall(
+            address(executionProxy),
+            0,
+            abi.encodeWithSelector(ExecutionProxy.execute.selector, executionAction.calls),
+            executionAction.gasLimit
         );
 
         //Drain the excess tokens
