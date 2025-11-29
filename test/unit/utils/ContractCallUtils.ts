@@ -5,19 +5,19 @@ import { assert, expect } from "chai";
 import hre from "hardhat";
 import { randomAddress, randomAddressNoZeroBytes } from "../../utils/evm/utils";
 
-describe("ContractCallUtils", function () {
-    async function deploy() {
-        const ContractCallUtilsWrapper = await hre.ethers.getContractFactory("ContractCallUtilsWrapper");
-        const contract = await ContractCallUtilsWrapper.deploy();
+async function deploy() {
+    const ContractCallUtilsWrapper = await hre.ethers.getContractFactory("ContractCallUtilsWrapper");
+    const contract = await ContractCallUtilsWrapper.deploy();
 
-        const DummyContract = await hre.ethers.getContractFactory("DummyContract");
-        const dummyContract = await DummyContract.deploy();
+    const DummyContract = await hre.ethers.getContractFactory("DummyContract");
+    const dummyContract = await DummyContract.deploy();
 
-        const [account1] = await hre.ethers.getSigners();
+    const [account1] = await hre.ethers.getSigners();
 
-        return {account1, contract, dummyContract};
-    }
+    return {account1, contract, dummyContract};
+}
 
+describe("ContractCallUtils: strictCall", function () {
     it("Valid contract call", async function () {
         const {contract, dummyContract} = await loadFixture(deploy);
 
@@ -132,7 +132,7 @@ describe("ContractCallUtils", function () {
             10_000,
             {
                 //Now this requires an intrinsic CALL gas of at least 34300 (+ 10k gas to forward)
-                gasLimit: 21_000 + 34_300 + 10_000 + 5_000
+                gasLimit: 21_000 + 34_300 + 10_000 + 6_000
             }
         );
         await expect(promise).to.emit(contract, "ExecutionResult").withArgs(true, "0x");
@@ -401,4 +401,317 @@ describe("ContractCallUtils", function () {
     //     assert.strictEqual(nextFrame.gas, gasToForward, "Full gas not forwarded");
     // });
 
+});
+
+
+describe("ContractCallUtils: safeCall", function () {
+    it("Valid contract call", async function () {
+        const {contract, dummyContract} = await loadFixture(deploy);
+
+        const {to, data} = await dummyContract.call.populateTransaction("0x01020304");
+
+        const promise = contract.safeCall(
+            to,
+            0,
+            data
+        );
+        await expect(promise).to.emit(contract, "ExecutionResult").withArgs(true, "0x");
+        await expect(promise).to.emit(dummyContract, "Event").withArgs("0x01020304");
+    });
+
+    it("Valid payable contract call", async function () {
+        const {account1, contract, dummyContract} = await loadFixture(deploy);
+
+        const {to, data} = await dummyContract.callPayable.populateTransaction("0x01020304");
+
+        await account1.sendTransaction({to: await contract.getAddress(), value: 1_000n});
+
+        const promise = contract.safeCall(
+            to,
+            1_000,
+            data
+        );
+        await expect(promise).to.emit(contract, "ExecutionResult").withArgs(true, "0x");
+        await expect(promise).to.emit(dummyContract, "PayableEvent").withArgs(1000, "0x01020304");
+    });
+
+    it("Valid reverting contract call", async function () {
+        const {contract, dummyContract} = await loadFixture(deploy);
+
+        const {to, data} = await dummyContract.callRevert.populateTransaction("Hello");
+
+        const promise = contract.safeCall(
+            to,
+            0,
+            data
+        );
+        await expect(promise).to.emit(contract, "ExecutionResult").withArgs(false, "0x08c379a00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000548656c6c6f000000000000000000000000000000000000000000000000000000");
+    });
+
+    it("Valid out of gas contract call", async function () {
+        const {contract, dummyContract} = await loadFixture(deploy);
+
+        const {to, data} = await dummyContract.outOfGas.populateTransaction();
+
+        //This should just pass with a regular call, reverting inside with out of gas (since outOfGas
+        // will burn everything)
+        await contract.standardCall(
+            to,
+            0,
+            data, //Any data
+            {
+                gasLimit: 21_000 + 200_000
+            }
+        );
+
+        //With safe call, this will actually revert!
+        const promise = contract.safeCall(
+            to,
+            0,
+            data,
+            {
+                gasLimit: 21_000 + 200_000
+            }
+        );
+        //Manifests itself as a safeCall(): not enough gas
+        await expect(promise).to.be.revertedWith("safeCall(): not enough gas");
+    });
+
+    it("Valid contract doesn't exist", async function () {
+        const {contract} = await loadFixture(deploy);
+
+        const promise = contract.safeCall(
+            randomAddress(),
+            0,
+            "0x01020304"
+        );
+        await expect(promise).to.emit(contract, "ExecutionResult").withArgs(true, "0x");
+    });
+
+    it("Call 1M gas burner", async function () {
+        const {contract, dummyContract} = await loadFixture(deploy);
+
+        //Check that burn1m really needs more than 200k gas
+        await expect(dummyContract.burn1m({gasLimit: 21_000 + 200_000})).to.be.revertedWithoutReason();
+
+        const {to, data} = await dummyContract.burn1m.populateTransaction();
+
+        //This should just pass with a regular call, reverting inside with out of gas (since burn1m
+        // costs around 1M gas to execute)
+        await expect(contract.standardCall(
+            to,
+            0,
+            data, //Any data
+            {
+                gasLimit: 21_000 + 2_600 + 200_000
+            }
+        )).to.emit(contract, "ExecutionResult").withArgs(false, "0x"); //Reverted due to out of gas!
+
+        //With safe call, this throws, because not enough gas is forwarded!
+        const promise = contract.safeCall(
+            to,
+            0,
+            data, //Any data
+            {
+                gasLimit: 21_000 + 2_600 + 200_000
+            }
+        );
+        await expect(promise).to.be.revertedWith("safeCall(): not enough gas");
+
+        //Call with enough gas works through safeCall now!
+        const promise2 = contract.safeCall(
+            to,
+            0,
+            data, //Any data
+            {
+                gasLimit: 21_000 + 2_600 + 1_050_000 //Add 5% buffer on top
+            }
+        );
+        await expect(promise2).to.emit(contract, "ExecutionResult").withArgs(true, "0x");
+    });
+
+    it("Call 100k gas burner", async function () {
+        const {contract, dummyContract} = await loadFixture(deploy);
+
+        //Check that burn1m really needs more than 200k gas
+        await expect(dummyContract.burn100k({gasLimit: 21_000 + 95_000})).to.be.revertedWithoutReason();
+
+        const {to, data} = await dummyContract.burn100k.populateTransaction();
+
+        //This should just pass with a regular call, reverting inside with out of gas (since burn100k
+        // costs around 100k gas to execute)
+        await contract.standardCallNoEmit(
+            to,
+            0,
+            data, //Any data
+            {
+                gasLimit: 21_000 + 2_600 + 95_000 //Use 5% too little
+            }
+        );
+
+        //With safe call, this throws, because not enough gas is forwarded!
+        const promise = contract.safeCall(
+            to,
+            0,
+            data, //Any data
+            {
+                gasLimit: 21_000 + 2_600 + 95_000 //Use 5% too little
+            }
+        );
+        await expect(promise).to.be.revertedWith("safeCall(): not enough gas");
+
+        //Call with enough gas works through safeCall now!
+        const promise2 = contract.safeCall(
+            to,
+            0,
+            data, //Any data
+            {
+                gasLimit: 21_000 + 2_600 + 105_000 //Add 5% buffer on top
+            }
+        );
+        await expect(promise2).to.emit(contract, "ExecutionResult").withArgs(true, "0x");
+    });
+
+    it("Call 100k gas burner (with value)", async function () {
+        const {account1, contract, dummyContract} = await loadFixture(deploy);
+
+        //Check that burn1m really needs more than 200k gas
+        await expect(dummyContract.burn100k({gasLimit: 21_000 + 95_000})).to.be.revertedWithoutReason();
+
+        await account1.sendTransaction({to: await contract.getAddress(), value: 1_000});
+
+        const {to, data} = await dummyContract.burn100k.populateTransaction();
+
+        //This should just pass with a regular call, reverting inside with out of gas (since burn100k
+        // costs around 100k gas to execute)
+        await contract.standardCallNoEmit(
+            to,
+            1_000,
+            data, //Any data
+            {
+                //Use 5% too little (9,100 gas is an intrinsic cost of CALL opcode)
+                gasLimit: 21_000 + 9_100 + 95_000
+            }
+        );
+
+        //With safe call, this throws, because not enough gas is forwarded!
+        const promise = contract.safeCall(
+            to,
+            1_000,
+            data, //Any data
+            {
+                //Use 5% too little (9,100 gas is an intrinsic cost of CALL opcode,
+                // 2,700 required for balance and extcodesize checks)
+                gasLimit: 21_000 + 2_700 + 9_100 + 95_000
+            }
+        );
+        await expect(promise).to.be.revertedWith("safeCall(): not enough gas");
+
+        //Call with enough gas works through safeCall now!
+        const promise2 = contract.safeCall(
+            to,
+            1_000,
+            data, //Any data
+            {
+                //Add 5% buffer on top
+                gasLimit: 21_000 + 2_700 + 9_100 + 105_000
+            }
+        );
+        await expect(promise2).to.emit(contract, "ExecutionResult").withArgs(true, "0x");
+    });
+
+    it("Call 10k gas burner", async function () {
+        const {contract, dummyContract} = await loadFixture(deploy);
+
+        //Check that burn1m really needs more than 200k gas
+        await expect(dummyContract.burn10k({gasLimit: 21_000 + 9_500})).to.be.revertedWithoutReason();
+
+        const {to, data} = await dummyContract.burn10k.populateTransaction();
+
+        //This should just pass with a regular call, reverting inside with out of gas (since burn10k
+        // costs around 10k gas to execute)
+        await contract.standardCallNoEmit(
+            to,
+            0,
+            data, //Any data
+            {
+                gasLimit: 21_000 + 2_600 + 9_500 //Use 5% too little
+            }
+        );
+
+        //With safe call, this throws, because not enough gas is forwarded!
+        const promise = contract.safeCall(
+            to,
+            0,
+            data, //Any data
+            {
+                gasLimit: 21_000 + 2_600 + 9_500 //Use 5% too little
+            }
+        );
+        await expect(promise).to.be.revertedWith("safeCall(): not enough gas");
+
+        //Call with enough gas works through safeCall now!
+        const promise2 = contract.safeCall(
+            to,
+            0,
+            data, //Any data
+            {
+                gasLimit: 21_000 + 2_600 + 10_500 + 4_000 //Add 5% buffer on top + additional 4k for event emitting
+            }
+        );
+        await expect(promise2).to.emit(contract, "ExecutionResult").withArgs(true, "0x");
+    });
+
+
+    it("Call 10k gas burner (with value)", async function () {
+        const {account1, contract, dummyContract} = await loadFixture(deploy);
+
+        //Check that burn10k really needs more than 10k gas
+        await expect(dummyContract.burn10k({gasLimit: 21_000 + 9_500})).to.be.revertedWithoutReason();
+
+        await account1.sendTransaction({to: await contract.getAddress(), value: 1_000});
+
+        const {to, data} = await dummyContract.burn10k.populateTransaction();
+
+        //This should just pass with a regular call, reverting inside with out of gas (since burn10k
+        // costs around 10k gas to execute)
+        await contract.standardCallNoEmit(
+            to,
+            1_000,
+            data, //Any data
+            {
+                gasLimit: 21_000 + 9_100 + 9_500 //Use 5% too little
+            }
+        );
+
+        //With safe call, this throws, because not enough gas is forwarded!
+        const promise = contract.safeCall(
+            to,
+            1_000,
+            data, //Any data
+            {
+                gasLimit: 21_000 + 9_100 + 9_500 //Use 5% too little
+            }
+        );
+        await expect(promise).to.be.revertedWith("safeCall(): not enough gas");
+
+        //Call with enough gas works through safeCall now!
+        //We can indirectly observe inner call being successful through balance changes
+        const preBalance = await account1.provider.getBalance(await contract.getAddress());
+        
+        //WTF is this about now? Reverts with 'function returned an unexpected amount of data'
+        const tx = await contract.safeCallNoEmit(
+            to,
+            1_000,
+            data, //Any data
+            {
+                gasLimit: 21_000 + 9_100 + 10_500 + 1_900 //Add 5% buffer on top + additional 2k gas for processing
+            }
+        );
+        const postBalance = await account1.provider.getBalance(await contract.getAddress());
+        assert.strictEqual(preBalance - postBalance, 1_000n);
+
+        const receipt = await tx.wait();
+        console.log(receipt.gasUsed, tx.gasLimit);
+    });
 });

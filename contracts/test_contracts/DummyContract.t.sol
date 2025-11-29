@@ -25,14 +25,28 @@ contract DummyContract {
         while(true) i++;
     }
 
-    function burn1m() pure external {
+    function burn10k() external payable {
+        assembly {
+            let iterations := 277
+            for { } gt(iterations, 0) { iterations := sub(iterations, 1) } {}
+        }
+    }
+
+    function burn100k() external payable {
+        assembly {
+            let iterations := 2849
+            for { } gt(iterations, 0) { iterations := sub(iterations, 1) } {}
+        }
+    }
+
+    function burn1m() external payable {
         assembly {
             let iterations := 28565
             for { } gt(iterations, 0) { iterations := sub(iterations, 1) } {}
         }
     }
 
-    function burn5m() pure external {
+    function burn5m() external payable {
         assembly {
             let iterations := 142857
             for { } gt(iterations, 0) { iterations := sub(iterations, 1) } {}

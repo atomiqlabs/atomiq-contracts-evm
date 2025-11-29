@@ -4,6 +4,7 @@ pragma solidity ^0.8.28;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IDepositOnlyWETH} from "./interfaces/IDepositOnlyWETH.sol";
+import {ContractCallUtils} from "../utils/ContractCallUtils.sol";
 
 abstract contract TransferHandler {
     using SafeERC20 for IERC20;
@@ -41,7 +42,7 @@ abstract contract TransferHandler {
     function _TokenHandler_transferOut(address token, address dst, uint256 amount) internal {
         if(token==address(0x0)) {
             //Attempt native token transfer
-            (bool success, ) = payable(dst).call{value: amount, gas: _transferOutGasForward}("");
+            (bool success, ) = ContractCallUtils.strictCall(dst, amount, "", _transferOutGasForward);
             //If failed, wrap the native token to the WETH contract and send it out
             if(!success) {
                 _wrappedEthContract.deposit{value: amount}();   
@@ -61,7 +62,7 @@ abstract contract TransferHandler {
     function _TokenHandler_transferOutNoRevert(address token, address dst, uint256 amount) internal returns (bool success) {
         if(token==address(0x0)) {
             //Native token transfer
-            (success, ) = payable(dst).call{value: amount, gas: _transferOutGasForward}("");
+            (success, ) = ContractCallUtils.strictCall(dst, amount, "", _transferOutGasForward);
             //If failed, wrap the native token to the WETH contract and send it out
             if(!success) {
                 try _wrappedEthContract.deposit{value: amount}() {
