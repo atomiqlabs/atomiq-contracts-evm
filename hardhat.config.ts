@@ -22,7 +22,7 @@ const config: HardhatUserConfig & {networks: {[chainName: string]: {wethAddress:
   },
   etherscan: {
     apiKey: {
-      botanixMainnet: "botanix"
+      botanixMainnet: "botanix",
     },
     customChains: [
       {
@@ -31,6 +31,14 @@ const config: HardhatUserConfig & {networks: {[chainName: string]: {wethAddress:
         urls: {
           apiURL: "https://api.routescan.io/v2/network/mainnet/evm/3637/etherscan",
           browserURL: "https://botanixscan.io"
+        }
+      },
+      {
+        network: "goatTestnet",
+        chainId: 48816,
+        urls: {
+          apiURL: "https://explorer.testnet3.goat.network/api",
+          browserURL: "https://explorer.testnet3.goat.network"
         }
       }
     ]
@@ -55,6 +63,12 @@ const config: HardhatUserConfig & {networks: {[chainName: string]: {wethAddress:
       url: "https://rpc.botanixlabs.com",
       accounts: [process.env.DEPLOYER_PRIVATE_KEY],
       wethAddress: "0x0D2437F93Fed6EA64Ef01cCde385FB1263910C56",
+      transferOutGasForward: 40_000
+    },
+    goatTestnet: {
+      url: "https://rpc.testnet3.goat.network",
+      accounts: [process.env.DEPLOYER_PRIVATE_KEY],
+      wethAddress: "0xbC10000000000000000000000000000000000000",
       transferOutGasForward: 40_000
     }
   },
