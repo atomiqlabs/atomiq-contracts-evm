@@ -23,6 +23,7 @@ const config: HardhatUserConfig & {networks: {[chainName: string]: {wethAddress:
   etherscan: {
     apiKey: {
       botanixMainnet: "botanix",
+      goatTestnet: "goat",
     },
     customChains: [
       {
