@@ -2,8 +2,35 @@ import { ethers, network, run } from "hardhat";
 import { getBlockchainInfo, getBlockheader } from "../test/utils/bitcoin_rpc_utils";
 import { serializeBitcoindStoredBlockheaderToStruct } from "../test/utils/evm/stored_blockheader";
 
+// Check if Etherscan/Blockscout verification is available for the current network
+function isEtherscanConfigured(): boolean {
+    try {
+        const hre = require("hardhat");
+        const currentNetwork = network.name;
+        const etherscanConfig = hre.config?.etherscan;
+        if (!etherscanConfig) {
+            return false;
+        }
+        const hasCustomChain = etherscanConfig.customChains?.some(
+            (chain: any) => chain.network === currentNetwork
+        );
+        const hasApiKey = etherscanConfig.apiKey && etherscanConfig.apiKey[currentNetwork];
+
+        // Verification is available if either custom chain is configured or API key exists
+        return hasCustomChain || hasApiKey;
+    } catch (error) {
+        console.log(`⚠️  Error checking Etherscan configuration: ${error}`);
+        return false;
+    }
+}
+
 // Helper function to verify contract on block explorer
 async function verifyContract(address: string, constructorArguments: any[]) {
+    if (!isEtherscanConfigured()) {
+        console.log(`⊘ Skipping verification (block explorer not configured for ${network.name})`);
+        return;
+    }
+
     console.log(`Verifying contract at ${address}...`);
     try {
         await run("verify:verify", {
@@ -133,9 +160,14 @@ async function main() {
     console.log("Starting contract verification...");
     console.log("========================================\n");
 
-    // Wait a bit for the contracts to be indexed by the block explorer
-    console.log("Waiting 30 seconds for contracts to be indexed...");
-    await new Promise(resolve => setTimeout(resolve, 30000));
+    if (!isEtherscanConfigured()) {
+        console.log(`⊘ Block explorer verification is not configured for network: ${network.name}`);
+        console.log(`⊘ Skipping all verification steps...`);
+    } else {
+        // Wait a bit for the contracts to be indexed by the block explorer
+        console.log("Waiting 30 seconds for contracts to be indexed...");
+        await new Promise(resolve => setTimeout(resolve, 30000));
+    }
 
     console.log("\n- Verifying BtcRelay");
     await verifyContract(btcRelayAddress, btcRelayConstructorArgs);
