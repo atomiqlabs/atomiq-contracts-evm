@@ -20,6 +20,7 @@ import {Execution} from "../execution_contract/structs/Execution.sol";
 import {IExecutionContract} from "../execution_contract/ExecutionContract.sol";
 
 import {MathUtils} from "../utils/MathUtils.sol";
+import {ContractCallUtils} from "../utils/ContractCallUtils.sol";
 
 interface ISpvVaultManager {
     //Creates the vault and initiates it with the first UTXO in the chain
@@ -356,19 +357,25 @@ contract SpvVaultManager is ISpvVaultManager, ISpvVaultManagerView, TransferHand
             executionFee: executionHandlerFee,
             expiry: data.executionExpiry
         });
+        //Use safe-call here, to prevent gas dependent branching, without this, a malicous attacker
+        // could potentially execute a call with low enough gas for the call to execution contract
+        // to fail due to out of gas, but this contract could continue executing (due to eip150 63/64 rule)
         if(vaultParams.token0 == address(0x0)) {
-            try _executionContract.create{value: amount0 + executionHandlerFee}(data.recipient, executionSalt, execution) {} catch {
-                return false;
-            }
+            (success, ) = ContractCallUtils.safeCall(
+                address(_executionContract),
+                amount0 + executionHandlerFee,
+                abi.encodeWithSelector(IExecutionContract.create.selector, data.recipient, executionSalt, execution)
+            );
         } else {
             _TokenHandler_approve(vaultParams.token0, address(_executionContract), amount0 + executionHandlerFee);
-            try _executionContract.create(data.recipient, executionSalt, execution) {} catch {
-                //Revert the approval
-                _TokenHandler_approve(vaultParams.token0, address(_executionContract), 0);
-                return false;
-            }
+            (success, ) = ContractCallUtils.safeCall(
+                address(_executionContract),
+                0,
+                abi.encodeWithSelector(IExecutionContract.create.selector, data.recipient, executionSalt, execution)
+            );
+            //Revert the approval in case of failure
+            if(!success) _TokenHandler_approve(vaultParams.token0, address(_executionContract), 0);
         }
-        return true;
     }
 
 }

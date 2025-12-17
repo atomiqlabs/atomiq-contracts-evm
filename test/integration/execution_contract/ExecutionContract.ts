@@ -828,4 +828,43 @@ describe("ExecutionContract", function () {
             contract.execute(account2.address, salt, execution, executionAction) //Second call should revert
         ).to.be.revertedWith("execute: Not scheduled");
     });
+
+    it("Unable to exploit EIP-150 63/64 rule", async function () {
+        const {contract, account1, account2, erc20Contract1, create, dummyContract} = await loadFixture(deploy);
+
+        const {to, data} = await dummyContract.burn5m.populateTransaction();
+
+        //Create execution action that requires around 5M gas,
+        // this should be enough for the action to execute
+        const executionAction: ExecutionAction = {
+            gasLimit: 5_100_000n, //This also needs to include some buffer for the proxy contract
+            calls: [
+                {
+                    target: to,
+                    data,
+                    value: 0n
+                }
+            ],
+            drainTokens: []
+        };
+        const executionActionHash = getExecutionActionHash(executionAction);
+
+        const creatorSalt = randomBytes32();
+        const salt = getExecutionSalt(account1.address, creatorSalt);
+        const execution = {
+            token: await erc20Contract1.getAddress(),
+            executionActionHash: executionActionHash,
+            amount: 1000n,
+            executionFee: 500n,
+            expiry: 0n //Already expired
+        };
+        await create(account2.address, creatorSalt, execution);
+
+        const promise = contract.execute(account2.address, salt, execution, executionAction, {
+            gasLimit: 2_000_000n //Use a gas limit of just 2M, which is not enough for the action to execute
+        });
+
+        //This call should fail, because the transaction gas limit is not enough to execute the action
+        await expect(promise).to.be.revertedWithoutReason();
+    });
 });

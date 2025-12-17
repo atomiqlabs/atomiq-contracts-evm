@@ -4,6 +4,7 @@ pragma solidity ^0.8.28;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IDepositOnlyWETH} from "./interfaces/IDepositOnlyWETH.sol";
+import {ContractCallUtils} from "../utils/ContractCallUtils.sol";
 
 abstract contract TransferHandler {
     using SafeERC20 for IERC20;
@@ -15,6 +16,39 @@ abstract contract TransferHandler {
     constructor(IDepositOnlyWETH wrappedEthContract, uint256 transferOutGasForward) {
         _wrappedEthContract = wrappedEthContract;
         _transferOutGasForward = transferOutGasForward;
+    }
+
+    //Re-implementation of the OpenZeppelin's `trySafeTransfer` function which uses the 
+    // safe call util to execute the underlying call
+    function trySafeTransfer(address token, address dst, uint256 amount) private returns (bool success) {
+        //Attempt a transfer using the safe call
+        (bool wethTransferSuccess, bytes memory returnData) = ContractCallUtils.safeCall(
+            address(_wrappedEthContract),
+            0,
+            abi.encodeWithSelector(IERC20.transfer.selector, dst, amount)
+        );
+        //Do nothing, the success is set to false anyway
+        if(!wethTransferSuccess) return success;
+
+        //This follows the checks from OpenZeppelin's trySafeFrom function:
+        // - relaxes the requirement on the return value: the return value is optional (but if data is returned,
+        //    it must not be true).
+        assembly ("memory-safe") {
+            let returnDataSize := mload(returnData)
+            let returnValue := mload(add(returnData, 32))
+            success := and(
+                gt(returnDataSize, 31), //Return data size is at least 32 bytes
+                eq(returnValue, 1) //Returned value is true (1)
+            )
+            //If call success all is good.
+            //Otherwise (not success is not true), we need to perform further checks
+            if iszero(success) {
+                //If the return value is not true, then the call is only successful if:
+                // - the token address has code
+                // - the returndata is empty
+                success := and(success, and(iszero(returndatasize()), gt(extcodesize(token), 0)))
+            }
+        }
     }
 
     //Transfer ERC20 tokens or native token to the current contract using transfer_from function
@@ -40,8 +74,10 @@ abstract contract TransferHandler {
     // re-entrancy, the transferOut should therefore be done after the state is already updated
     function _TokenHandler_transferOut(address token, address dst, uint256 amount) internal {
         if(token==address(0x0)) {
-            //Attempt native token transfer
-            (bool success, ) = payable(dst).call{value: amount, gas: _transferOutGasForward}("");
+            //Attempt native token transfer using safe call, so we can be sure that enough
+            // gas is forwarded in the transfer, otherwise a malicious caller could intentionally
+            // call with too little gas, making the transfer fail when it shouldn't
+            (bool success, ) = ContractCallUtils.safeCall(dst, amount, "", _transferOutGasForward);
             //If failed, wrap the native token to the WETH contract and send it out
             if(!success) {
                 _wrappedEthContract.deposit{value: amount}();   
@@ -60,19 +96,27 @@ abstract contract TransferHandler {
     // re-entrancy, the transferOut should therefore be done after the state is already updated
     function _TokenHandler_transferOutNoRevert(address token, address dst, uint256 amount) internal returns (bool success) {
         if(token==address(0x0)) {
-            //Native token transfer
-            (success, ) = payable(dst).call{value: amount, gas: _transferOutGasForward}("");
+            //Attempt native token transfer using safe call, so we can be sure that enough
+            // gas is forwarded in the transfer, otherwise a malicious caller could intentionally
+            // call with too little gas, making the transfer fail when it shouldn't
+            (success, ) = ContractCallUtils.safeCall(dst, amount, "", _transferOutGasForward);
+            if(success) return success;
+
             //If failed, wrap the native token to the WETH contract and send it out
-            if(!success) {
-                try _wrappedEthContract.deposit{value: amount}() {
-                    success = _wrappedEthContract.trySafeTransfer(dst, amount);
-                } catch {
-                    //Do nothing, the success is set to false anyway
-                }
-            }
+            //Also use safe call for calling the WETH functions, this again makes sure
+            // that no gas dependent branching is possible
+            (bool wethDepositSuccess, ) = ContractCallUtils.safeCall(
+                address(_wrappedEthContract),
+                amount,
+                abi.encodeWithSelector(IDepositOnlyWETH.deposit.selector)
+            );
+            //Do nothing, the success is set to false anyway
+            if(!wethDepositSuccess) return success;
+
+            //Attempt the transfer of WETH
+            success = trySafeTransfer(address(_wrappedEthContract), dst, amount);
         } else {
-            //ERC20 token transfer
-            success = IERC20(token).trySafeTransfer(dst, amount);
+            success = trySafeTransfer(address(token), dst, amount);
         }
     }
 
@@ -82,7 +126,8 @@ abstract contract TransferHandler {
     // re-entrancy, the transferOut should therefore be done after the state is already updated
     function _TokenHandler_transferOutRawFullGas(address token, address dst, uint256 amount) internal {
         if(token==address(0x0)) {
-            //Attempt native token transfer
+            //Attempt native token transfer, since here the call is reverting, we don't
+            // need to use the safe call utils
             (bool success, ) = payable(dst).call{value: amount, gas: gasleft()}("");
             require(success, "transferOutRaw: native xfer fail");
         } else {
