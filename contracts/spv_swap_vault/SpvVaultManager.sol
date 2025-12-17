@@ -145,6 +145,8 @@ contract SpvVaultManager is ISpvVaultManager, ISpvVaultManagerView, TransferHand
         (uint256 amount0, uint256 amount1) = vaultParams.fromRaw(rawAmount0, rawAmount1);
         _transferIn(vaultParams.token0, amount0, vaultParams.token1, amount1);
 
+        bytes32 ownerAndVaultIdPacked = Utils.packAddressAndVaultId(owner, vaultId);
+
         //Transfer funds
         if(data.executionHash == bytes32(0x0)) {
             //Pass funds straight to recipient
@@ -153,11 +155,11 @@ contract SpvVaultManager is ISpvVaultManager, ISpvVaultManagerView, TransferHand
             //Amount1 of token1 goes directly to the recipient
             if(amount1 > 0) _TokenHandler_transferOut(vaultParams.token1, data.recipient, amount1);
             //Rest is transfered to execution contract
-            _toExecutionContract(vaultParams, data, btcTxHash);
+            require(_toExecutionContract(ownerAndVaultIdPacked, frontingId, vaultParams, data), "front: execution schedule fail");
         }
 
         //Emit event
-        emit Events.Fronted(Utils.packAddressAndVaultId(owner, vaultId), data.recipient, btcTxHash, msg.sender, data.executionHash, data.amount0, data.amount1);
+        emit Events.Fronted(ownerAndVaultIdPacked, data.recipient, btcTxHash, msg.sender, data.executionHash, data.amount0, data.amount1);
     }
     
     //Claim funds from the vault, given a proper bitcoin transaction as verified through the relay contract
@@ -215,6 +217,7 @@ contract SpvVaultManager is ISpvVaultManager, ISpvVaultManagerView, TransferHand
         address recipient = txData.recipient;
         bytes32 frontingId = txData.hash(btcTxHash);
         address frontingAddress = _liquidityFronts[owner][vaultId][frontingId];
+        bytes32 packedAddressAndVaultId = Utils.packAddressAndVaultId(owner, vaultId);
         if(frontingAddress != address(0x0)) {
             //Transfer funds to caller
             (uint256 callerAmount0, uint256 callerAmount1) = vaultParams.fromRaw(txData.callerFee0, txData.callerFee1);
@@ -269,12 +272,16 @@ contract SpvVaultManager is ISpvVaultManager, ISpvVaultManagerView, TransferHand
                 }
 
                 //Rest is transfered to execution contract
-                _toExecutionContract(vaultParams, txData, btcTxHash);
+                if(!_toExecutionContract(packedAddressAndVaultId, frontingId, vaultParams, txData)) {
+                    //In case the transfer to execution contract fails, pay out directly to the user
+                    uint256 payoutAmount0 = vaultParams.fromRawToken0(txData.amount0 + txData.executionHandlerFeeAmount0);
+                    _TokenHandler_transferOutNoRevert(vaultParams.token0, recipient, payoutAmount0);
+                }
             }
         }
 
         //Emit event
-        emit Events.Claimed(Utils.packAddressAndVaultId(owner, vaultId), recipient, btcTxHash, msg.sender, txData.executionHash, frontingAddress, withdrawCount, amount0Raw, amount1Raw);
+        emit Events.Claimed(packedAddressAndVaultId, recipient, btcTxHash, msg.sender, txData.executionHash, frontingAddress, withdrawCount, amount0Raw, amount1Raw);
     }
 
     //Internal functions
@@ -324,10 +331,24 @@ contract SpvVaultManager is ISpvVaultManager, ISpvVaultManagerView, TransferHand
         }
     }
 
-    function _toExecutionContract(SpvVaultParameters calldata vaultParams, BitcoinVaultTransactionData memory data, bytes32 btcTxHash) internal {
+    function _toExecutionContract(
+        bytes32 ownerAndVaultIdPacked,
+        bytes32 frontingId,
+        SpvVaultParameters calldata vaultParams,
+        BitcoinVaultTransactionData memory data
+    ) internal returns (bool success) {
         uint256 amount0 = vaultParams.fromRawToken0(data.amount0);
         uint256 executionHandlerFee = vaultParams.fromRawToken0(data.executionHandlerFeeAmount0);
         
+        bytes32 executionSalt;
+        assembly {
+            //Use vault data (owner and vault id)
+            mstore(0, ownerAndVaultIdPacked)
+            //And fronting ID
+            mstore(32, frontingId)
+            executionSalt := keccak256(0, 64)
+        }
+
         Execution memory execution = Execution({
             token: vaultParams.token0,
             executionActionHash: data.executionHash,
@@ -336,11 +357,18 @@ contract SpvVaultManager is ISpvVaultManager, ISpvVaultManagerView, TransferHand
             expiry: data.executionExpiry
         });
         if(vaultParams.token0 == address(0x0)) {
-            _executionContract.create{value: amount0 + executionHandlerFee}(data.recipient, btcTxHash, execution);
+            try _executionContract.create{value: amount0 + executionHandlerFee}(data.recipient, executionSalt, execution) {} catch {
+                return false;
+            }
         } else {
             _TokenHandler_approve(vaultParams.token0, address(_executionContract), amount0 + executionHandlerFee);
-            _executionContract.create(data.recipient, btcTxHash, execution);
+            try _executionContract.create(data.recipient, executionSalt, execution) {} catch {
+                //Revert the approval
+                _TokenHandler_approve(vaultParams.token0, address(_executionContract), 0);
+                return false;
+            }
         }
+        return true;
     }
 
 }
