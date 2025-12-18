@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {WETH9} from "./WETH9.sol";
+import {WETH9} from "./WETH9.t.sol";
 
 // wake-disable-next-line
 contract BrokenDepositWETH9 is WETH9 {
