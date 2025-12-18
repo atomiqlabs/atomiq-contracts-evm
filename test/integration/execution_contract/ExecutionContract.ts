@@ -865,6 +865,6 @@ describe("ExecutionContract", function () {
         });
 
         //This call should fail, because the transaction gas limit is not enough to execute the action
-        await expect(promise).to.be.revertedWithoutReason();
+        await expect(promise).to.be.revertedWith("safeCall(): not enough gas");
     });
 });
