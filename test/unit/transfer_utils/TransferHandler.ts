@@ -16,10 +16,15 @@ describe("TransferHandler", function () {
         const BrokenTransferWETH9 = await hre.ethers.getContractFactory("BrokenTransferWETH9");
         const brokenTransferWethContract = await BrokenTransferWETH9.deploy();
 
+        const WETH9TransferNoReturn = await hre.ethers.getContractFactory("WETH9TransferNoReturn");
+        const wethContractTransferNoReturn = await WETH9TransferNoReturn.deploy();
+
         const TransferHandlerWrapper = await hre.ethers.getContractFactory("TransferHandlerWrapper");
         const contract = await TransferHandlerWrapper.deploy(wethContract, TRANSFER_OUT_MAX_GAS);
         const brokenWethDepositContract = await TransferHandlerWrapper.deploy(brokenDepositWethContract, TRANSFER_OUT_MAX_GAS);
         const brokenWethTransferContract = await TransferHandlerWrapper.deploy(brokenTransferWethContract, TRANSFER_OUT_MAX_GAS);
+        const wethTransferNoReturnContract = await TransferHandlerWrapper.deploy(wethContractTransferNoReturn, TRANSFER_OUT_MAX_GAS);
+        const wethRandomAddressContract = await TransferHandlerWrapper.deploy(randomAddress(), TRANSFER_OUT_MAX_GAS);
 
         const ERC20 = await hre.ethers.getContractFactory("TestERC20");
         const erc20Contract1 = await ERC20.deploy();
@@ -27,9 +32,26 @@ describe("TransferHandler", function () {
         const InfiniteLoopContract = await hre.ethers.getContractFactory("InfiniteLoopContract");
         const infiniteLoopContract = await InfiniteLoopContract.deploy();
 
+        const ERC20TransferNoReturn = await hre.ethers.getContractFactory("TestERC20TransferNoReturn");
+        const erc20TransferNoReturnContract = await ERC20TransferNoReturn.deploy();
+
         const [account1, account2] = await hre.ethers.getSigners();
 
-        return {contract, brokenWethDepositContract, brokenWethTransferContract, erc20Contract1, account1, account2, infiniteLoopContract, wethContract, brokenTransferWethContract};
+        return {
+            contract,
+            brokenWethDepositContract,
+            brokenWethTransferContract,
+            erc20Contract1,
+            account1,
+            account2,
+            infiniteLoopContract,
+            wethContract,
+            brokenTransferWethContract,
+            erc20TransferNoReturnContract,
+            wethTransferNoReturnContract,
+            wethRandomAddressContract,
+            wethContractTransferNoReturn
+        };
     }
 
     it("Valid balance of (erc-20)", async function () {
@@ -200,6 +222,30 @@ describe("TransferHandler", function () {
         assert.strictEqual(await erc20Contract1.balanceOf(recipient), 500n);
     });
 
+    it("Valid transfer out (no revert) (erc-20) - transfer fn returning void", async function () {
+        const {contract, erc20TransferNoReturnContract, account1, account2} = await loadFixture(deploy);
+
+        const recipient = randomAddress();
+
+        await erc20TransferNoReturnContract.transfer(await contract.getAddress(), 1000n);
+        await expect(
+            contract.transferOutNoRevert(await erc20TransferNoReturnContract.getAddress(), recipient, 500n)
+        ).to.emit(contract, "TransferNoRevertResult").withArgs(true);
+        assert.strictEqual(await erc20TransferNoReturnContract.balanceOf(await contract.getAddress()), 500n);
+        assert.strictEqual(await erc20TransferNoReturnContract.balanceOf(recipient), 500n);
+    });
+
+    it("Invalid transfer out (no revert) (erc-20) - call transfer fn on random address", async function () {
+        const {contract, erc20TransferNoReturnContract, account1, account2} = await loadFixture(deploy);
+
+        const recipient = randomAddress();
+        const randomContractAddress = randomAddress();
+
+        await expect(
+            contract.transferOutNoRevert(randomContractAddress, recipient, 500n)
+        ).to.emit(contract, "TransferNoRevertResult").withArgs(false);
+    });
+
     it("Invalid transfer out not enough balance (no revert) (erc-20)", async function () {
         const {contract, erc20Contract1, account1, account2} = await loadFixture(deploy);
 
@@ -241,7 +287,7 @@ describe("TransferHandler", function () {
         assert.strictEqual(await account1.provider.getBalance(recipient), 0n);
     });
 
-    it("Invalid transfer out, target reverted or ran out of gas (no revert) (native token)", async function () {
+    it("Valid transfer out, target reverted or ran out of gas (no revert) (native token)", async function () {
         const {contract, erc20Contract1, account1, account2, infiniteLoopContract, wethContract} = await loadFixture(deploy);
 
         const recipient = await infiniteLoopContract.getAddress();
@@ -254,6 +300,19 @@ describe("TransferHandler", function () {
         assert.strictEqual(await wethContract.balanceOf(recipient), 500n);
     });
 
+    it("Valid transfer out, target reverted or ran out of gas (no revert) (native token)", async function () {
+        const {wethTransferNoReturnContract, account1, infiniteLoopContract, wethContractTransferNoReturn} = await loadFixture(deploy);
+
+        const recipient = await infiniteLoopContract.getAddress();
+
+        await account1.sendTransaction({to: await wethTransferNoReturnContract.getAddress(), value: 1000n});
+        await expect(
+            wethTransferNoReturnContract.transferOutNoRevert("0x0000000000000000000000000000000000000000", recipient, 500n)
+        ).to.emit(wethTransferNoReturnContract, "TransferNoRevertResult").withArgs(true);
+        //The native token should've been converted into WETH and transfered to recipient
+        assert.strictEqual(await wethContractTransferNoReturn.balanceOf(recipient), 500n);
+    });
+    
     it("Invalid transfer out, target reverted or ran out of gas, broken weth9 deposit impl (no revert) (native token)", async function () {
         const {brokenWethDepositContract, erc20Contract1, account1, account2, infiniteLoopContract} = await loadFixture(deploy);
 
@@ -281,6 +340,21 @@ describe("TransferHandler", function () {
         assert.strictEqual(await account1.provider.getBalance(await brokenWethTransferContract.getAddress()), 500n);
         //WETH tokens stayed with the contract
         assert.strictEqual(await brokenTransferWethContract.balanceOf(await brokenWethTransferContract.getAddress()), 500n);
+        //Ensure nothing was transfered to the user
+        assert.strictEqual(await account1.provider.getBalance(recipient), 0n);
+    });
+
+    it("Invalid transfer out, target reverted or ran out of gas, weth9 impl is an EOA without code (no revert) (native token)", async function () {
+        const {wethRandomAddressContract, account1, infiniteLoopContract} = await loadFixture(deploy);
+
+        const recipient = await infiniteLoopContract.getAddress();
+
+        await account1.sendTransaction({to: await wethRandomAddressContract.getAddress(), value: 1000n});
+        await expect(
+            wethRandomAddressContract.transferOutNoRevert("0x0000000000000000000000000000000000000000", recipient, 500n)
+        ).to.emit(wethRandomAddressContract, "TransferNoRevertResult").withArgs(false);
+        //Balance was already taken from the contract, since deposit went through, just transfer failed
+        assert.strictEqual(await account1.provider.getBalance(await wethRandomAddressContract.getAddress()), 500n);
         //Ensure nothing was transfered to the user
         assert.strictEqual(await account1.provider.getBalance(recipient), 0n);
     });

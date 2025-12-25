@@ -37,7 +37,7 @@ contract DummyContract {
 
     function burn10k() external payable {
         assembly {
-            let iterations := 277
+            let iterations := 276
             for { } gt(iterations, 0) { iterations := sub(iterations, 1) } {}
         }
     }

@@ -22,13 +22,13 @@ abstract contract TransferHandler {
     // safe call util to execute the underlying call
     function trySafeTransfer(address token, address dst, uint256 amount) private returns (bool success) {
         //Attempt a transfer using the safe call
-        (bool wethTransferSuccess, bytes memory returnData) = ContractCallUtils.safeCall(
-            address(_wrappedEthContract),
+        (bool transferSuccess, bytes memory returnData) = ContractCallUtils.safeCall(
+            token,
             0,
             abi.encodeWithSelector(IERC20.transfer.selector, dst, amount)
         );
         //Do nothing, the success is set to false anyway
-        if(!wethTransferSuccess) return success;
+        if(!transferSuccess) return success;
 
         //This follows the checks from OpenZeppelin's trySafeFrom function:
         // - relaxes the requirement on the return value: the return value is optional (but if data is returned,
@@ -46,7 +46,7 @@ abstract contract TransferHandler {
                 //If the return value is not true, then the call is only successful if:
                 // - the token address has code
                 // - the returndata is empty
-                success := and(success, and(iszero(returndatasize()), gt(extcodesize(token), 0)))
+                success := and(iszero(returndatasize()), gt(extcodesize(token), 0))
             }
         }
     }

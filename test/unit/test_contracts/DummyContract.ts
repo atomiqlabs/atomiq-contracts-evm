@@ -13,7 +13,7 @@ async function deploy() {
     return {account1, dummyContract};
 }
 
-describe("ContractCallUtils: strictCall", function () {
+describe("DummyContract", function () {
     it("Test gas burner (10k)", async function () {
         const {account1, dummyContract} = await loadFixture(deploy);
 

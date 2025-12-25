@@ -876,6 +876,7 @@ describe("ContractCallUtils: safeCall (no gasLimit - forward all)", function () 
                 calls.push({...await dummyContract.burnVariableCycles.populateTransaction(i), gasLimit: 150n + BigInt(i)*35n});
             }
 
+            let i = 0;
             for(let call of calls) {
                 //This is the absolute minimum gas that the tx needs to still pass the
                 // internal gasleft() check, one less gas will make the tx revert 
@@ -910,6 +911,8 @@ describe("ContractCallUtils: safeCall (no gasLimit - forward all)", function () 
                 const gasSpent = gasLeftAfterIntrinsicCosts - gasAfterCall;
 
                 assert.isTrue(gasSpent < ((gasLeftAfterIntrinsicCosts * 63n / 64n) - 10n), "Forwarded gas is too close to the 63/64 of the remaining gas");
+                i++;
+                console.log(`Test ${i}/${calls.length} completed!`);
             }
         }
 
