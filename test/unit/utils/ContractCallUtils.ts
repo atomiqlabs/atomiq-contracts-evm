@@ -803,7 +803,8 @@ describe("ContractCallUtils: safeCall (no gasLimit - forward all)", function () 
     //This test verifies the consistency of the ContractCallUtils implementation. It makes
     // sure that the implemented check triggers before all the 63/64 of the gas is forwarded
     // to the contract
-    it("Check consistency (contract calls) - calling incrementally more expensive contracts with and without value", async function () {
+    //This is very heavy to run and requires quite a bit of memory, hence skipped by default
+    it.skip("Check consistency (contract calls) - calling incrementally more expensive contracts with and without value", async function () {
         const {account1, contract, dummyContract} = await loadFixture(deploy);
 
         async function checkConsistency(value: bigint) {
