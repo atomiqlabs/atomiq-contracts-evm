@@ -296,7 +296,7 @@ contract SpvVaultManager is ISpvVaultManager, ISpvVaultManagerView, TransferHand
         vault.close();
 
         //Payout funds back to owner
-        _transferOut(owner, vaultParams.token0, amount0, vaultParams.token1, amount1);
+        _transferOutNoRevert(owner, vaultParams.token0, amount0, vaultParams.token1, amount1);
 
         emit Events.Closed(owner, vaultId, btcTxHash, bytes(err));
     }
