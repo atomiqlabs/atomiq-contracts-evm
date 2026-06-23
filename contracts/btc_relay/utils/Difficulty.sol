@@ -6,6 +6,7 @@ import {
     TARGET_TIMESPAN, TARGET_TIMESPAN_DIV_4, TARGET_TIMESPAN_MUL_4,
     ROUNDED_MAX_TARGET, ROUNDED_MAX_TARGET_NBITS
 } from "../Constants.sol";
+import {MathUtils} from "../../utils/MathUtils.sol";
 
 library Difficulty {
 
@@ -23,7 +24,7 @@ library Difficulty {
 
     //New version of the target computation, works directly with nBits
     function computeNewTarget(uint32 prevTimestamp, uint32 startTimestamp, uint32 prevNbitsLE, bool clampTarget) pure internal returns (uint256 newTarget, uint32 newNbitsLE) {
-        uint256 timespan = uint256(prevTimestamp) - uint256(startTimestamp);
+        uint256 timespan = MathUtils.saturatingSubUint256(uint256(prevTimestamp), uint256(startTimestamp));
         //Difficulty increase/decrease multiples are clamped between 0.25 (-75%) and 4 (+300%)
         if(timespan < TARGET_TIMESPAN_DIV_4) timespan = TARGET_TIMESPAN_DIV_4;
         if(timespan > TARGET_TIMESPAN_MUL_4) timespan = TARGET_TIMESPAN_MUL_4;
