@@ -188,4 +188,44 @@ describe("MathUtils", function () {
         assert.strictEqual(result, 0n);
     });
 
+    it("Valid saturatingSubUint256", async function () {
+        const {contract} = await loadFixture(deploy);
+        
+        const a = 8434864612n;
+        const b = 78484488n;
+
+        const result = await contract.saturatingSubUint256(a, b);
+        assert.strictEqual(result, a - b);
+    });
+
+    it("Valid saturatingSubUint256, exact saturated", async function () {
+        const {contract} = await loadFixture(deploy);
+        
+        const a = 87864869486n;
+        const b = 87864869486n;
+
+        const result = await contract.saturatingSubUint256(a, b);
+        assert.strictEqual(result, 0n);
+    });
+
+    it("Valid saturatingSubUint256, saturated", async function () {
+        const {contract} = await loadFixture(deploy);
+        
+        const a = 5412854n;
+        const b = 8321866864n;
+
+        const result = await contract.saturatingSubUint256(a, b);
+        assert.strictEqual(result, 0n);
+    });
+
+    it("Valid saturatingSubUint256, zero", async function () {
+        const {contract} = await loadFixture(deploy);
+        
+        const a = 0n;
+        const b = 0n;
+
+        const result = await contract.saturatingSubUint256(a, b);
+        assert.strictEqual(result, 0n);
+    });
+
 });
