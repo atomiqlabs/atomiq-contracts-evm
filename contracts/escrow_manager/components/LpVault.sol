@@ -40,7 +40,7 @@ abstract contract LpVault is ILpVault, TransferHandler {
 
     function getBalance(LpVaultBalanceQuery[] calldata data) external view returns (uint256[] memory balances) {
         balances = new uint256[](data.length);
-        for(uint i = 0; i < data.length; i++) {
+        for(uint256 i = 0; i < data.length; i++) {
             balances[i] = _lpVault[data[i].owner][data[i].token];
         }
     }

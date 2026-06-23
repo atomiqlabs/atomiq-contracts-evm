@@ -27,7 +27,7 @@ abstract contract ReputationTracker is IReputationTracker {
     //Public external functions
     function getReputation(ReputationQuery[] calldata data) external view returns (ReputationState[3][] memory result) {
         result = new ReputationState[3][](data.length);
-        for(uint i = 0; i < data.length; i++) {
+        for(uint256 i = 0; i < data.length; i++) {
             result[i] = _reputation[data[i].owner][data[i].token][data[i].claimHandler];
         }
     }
