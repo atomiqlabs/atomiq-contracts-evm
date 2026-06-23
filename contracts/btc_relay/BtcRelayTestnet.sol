@@ -192,6 +192,7 @@ contract BtcRelayTestnet is IBtcRelay, IBtcRelayView {
             uint256 blockHeight = forkStartBlockheight-1;
             
             //Make sure that the fork's root block is still committed
+            require(blockHeight <= tipBlockHeight, "fork: reorg future block");
             require(_mainChain[blockHeight] == forkChain[blockHeight], "fork: reorg block commitment");
             delete forkChain[blockHeight];
 
