@@ -29,4 +29,8 @@ contract MathUtilsWrapper {
         result = MathUtils.maxUint256(a, b);
     }
 
+    function saturatingSubUint256(uint256 a, uint256 b) pure external returns (uint256 result) {
+        result = MathUtils.saturatingSubUint256(a, b);
+    }
+
 }

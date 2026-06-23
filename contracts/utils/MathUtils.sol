@@ -49,4 +49,12 @@ library MathUtils {
         }
     }
 
+    function saturatingSubUint256(uint256 a, uint256 b) pure internal returns (uint256 result) {
+        assembly {
+            let c := sub(a, b)
+            let underflow := lt(a, b)
+            result := mul(iszero(underflow), c) //Set the resulting value if no underflow happens
+        }
+    }
+
 }
