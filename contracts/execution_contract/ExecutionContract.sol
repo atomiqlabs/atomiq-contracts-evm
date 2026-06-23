@@ -3,7 +3,6 @@ pragma solidity ^0.8.28;
 
 import {Execution, ExecutionImpl} from "./structs/Execution.sol";
 import {ExecutionAction, ExecutionActionImpl} from "../execution_proxy/structs/ExecutionAction.sol";
-import {ExecutionProxy} from "../execution_proxy/ExecutionProxy.sol";
 import {IDepositOnlyWETH} from "../transfer_utils/interfaces/IDepositOnlyWETH.sol";
 import {Events} from "./Events.sol";
 import {Executor} from "../execution_proxy/Executor.sol";
