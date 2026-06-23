@@ -4,7 +4,7 @@ pragma solidity ^0.8.28;
 import {ContractCall} from "./ContractCall.sol";
 
 struct ExecutionAction {
-    //Gas limit for the contract calls, 0 is a placeholder for forwarding all the available gas
+    //Gas limit for the contract calls
     uint256 gasLimit;
     //Token addresses to drain from the contract after execution
     address[] drainTokens;
